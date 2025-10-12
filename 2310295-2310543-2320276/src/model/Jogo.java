@@ -1,101 +1,204 @@
-package model; // declara que esta classe pertence ao pacote 'model'
+package model;
 
-import java.util.*; // importa utilitários (List, ArrayList, Collections, Random)
+import java.util.*;
 
-public class Jogo { // classe pública: ponto de entrada/API do Model
-    private final List<Jogador> jogadores; // lista de jogadores da partida (imutável na referência)
-    private final Tabuleiro tabuleiro; // referência ao tabuleiro do jogo (imutável na referência)
-    private final Banco banco; // banco do jogo (armazena dinheiro e propriedades sem dono)
-    private int jogadorAtual; // índice do jogador da vez dentro da lista 'jogadores'
-    private int doublesSeguidos; // contador de duplas seguidas 
+public class Jogo {
+    private final List<Jogador> jogadores;
+    private final Map<String, Jogador> jogadorPorNome;
+    private final Tabuleiro tabuleiro;
+    private final Banco banco;
+    private int jogadorAtual;
+    private int doublesSeguidos;
+    private Random rng = new Random();
+    private static final boolean VERBOSE = false; // liga/desliga prints de log
 
-    public Jogo(List<String> nomesJogadores) { // construtor recebe nomes e inicializa a partida
-        tabuleiro = new Tabuleiro(); // cria o tabuleiro com as casas definidas
-        banco = new Banco(); // cria o banco
-        jogadores = new ArrayList<>(); // instancia a lista de jogadores
-        for (String nome : nomesJogadores) { // percorre os nomes recebidos
-            jogadores.add(new Jogador(nome)); // cria um jogador para cada nome e adiciona à lista
+    public Jogo(List<String> nomesJogadores) {
+        tabuleiro = new Tabuleiro();
+        banco = new Banco();
+        jogadores = new ArrayList<>();
+        jogadorPorNome = new LinkedHashMap<>();
+        for (String nome : nomesJogadores) {
+            Jogador j = new Jogador(nome);
+            jogadores.add(j);
+            jogadorPorNome.put(nome, j);
         }
-        jogadorAtual = 0; // primeiro jogador inicia (índice 0)
-        doublesSeguidos = 0; // zera contador de duplas
+        jogadorAtual = 0;
+        doublesSeguidos = 0;
     }
 
-    /** Lança 2 dados e retorna seus valores (1..6). */
-    public int[] lancarDados() { // método da API para lançar os dados
-        Random r = new Random(); // usa gerador pseudo-aleatório da JDK
-        int d1 = 1 + r.nextInt(6); // sorteia primeiro dado (1 a 6)
-        int d2 = 1 + r.nextInt(6); // sorteia segundo dado (1 a 6)
-        return new int[]{d1, d2}; // retorna os dois valores em um array
+    public void setRandom(Random r) {
+        this.rng = (r != null ? r : new Random());
     }
     
     public void enviarParaPrisao(Jogador j) { // torna público para ser chamado por VaParaPrisao
-        j.setPosicao(tabuleiro.getIndicePrisao()); // move o jogador para o índice da prisão
-        j.setPreso(true); // marca o estado de preso
-        System.out.println(j.getNome() + ", você foi preso!"); // log de aviso para jogador
+        j.setPreso(true);
+        j.resetTentativasPrisao();
+        j.setPosicao(tabuleiro.getIndicePrisao()); // marca o estado de preso
+        // zera contador de tentativas enquanto preso
+        try {
+            java.lang.reflect.Field f = j.getClass().getDeclaredField("tentativasPrisao");
+            f.setAccessible(true);
+            f.setInt(j, 0);
+        } catch (Exception ignored) {}
+        if (VERBOSE) System.out.println(j.getNome() + ", você foi preso!"); // log de aviso para jogador
+    }
+    
+    public List<Integer> lancarDados() {
+        int d1 = 1 + rng.nextInt(6); // 1..6
+        int d2 = 1 + rng.nextInt(6); // 1..6
+        return Arrays.asList(d1, d2);
+    }
+    
+    public boolean usarCartaSaidaPrisao() {
+        Jogador j = getJogadorAtual();
+        if (j.isTemCartaSaidaPrisao()) {
+            j.usarCartaSaidaPrisao(); // já zera a flag e marca preso=false
+            // zera o contador de tentativas
+            try {
+                java.lang.reflect.Field f = j.getClass().getDeclaredField("tentativasPrisao");
+                f.setAccessible(true);
+                f.setInt(j, 0);
+            } catch (Exception ignored) {}
+            return true;
+        }
+        return false;
     }
 
-    /** Desloca o pião do jogador da vez e executa a ação da casa. */
-    public boolean deslocarPiao(int[] dados) { // recebe os valores dos dados lançados
-        Jogador j = getJogadorAtual(); // obtém referência do jogador atual
+    public boolean deslocarPiao(List<Integer> dados) {
+        if (dados == null || dados.size() != 2) return false;
 
-        // Tratamento de prisão (saída por dupla ou cartão)
-        if (j.isPreso()) { // se o jogador estiver preso
-            boolean saiu = false; // marca se o jogador saiu da prisão
-            if (dados[0] == dados[1]) { j.sairDaPrisao(); saiu = true; } // se tirar uma dupla nos dados sai da prisão
-            else if (j.isTemCartaSaidaPrisao()) { j.usarCartaSaidaPrisao(); saiu = true; } // se tiver carta sai da prisão
-            if (!saiu) return true; // se não saiu, segue preso e perde a vez
-        }
+        int d1 = dados.get(0);
+        int d2 = dados.get(1);
 
-        // 3 duplas seguidas => prisão (opcional de acordo com as regras)
-        if (dados[0] == dados[1]) { // se tirou dupla na jogada atual
-            doublesSeguidos++; // incrmenta +1 no contador de duplas seguidas
-            if (doublesSeguidos == 3) { // se o contador chegou a 3
-                enviarParaPrisao(j); // manda o jogador para prisão
-                doublesSeguidos = 0; // reseta o contador
-                return true; // finaliza a jogada
+        Jogador j = getJogadorAtual();
+
+        // ========== PRISÃO ==========
+        if (j.isPreso()) {
+            boolean saiu = false;
+
+            // 1) dupla solta
+            if (d1 == d2) {
+                j.sairDaPrisao();
+                resetTentativasPrisao(j);
+                saiu = true;
             }
-        } else { // se não foi dupla
-            doublesSeguidos = 0; // reseta o contador de duplas
+            // 2) carta "saída livre"
+            else if (j.isTemCartaSaidaPrisao()) {
+                j.usarCartaSaidaPrisao(); // zera flag e sai
+                resetTentativasPrisao(j);
+                saiu = true;
+            }
+            // 3) não saiu: permanece preso e perde a vez
+            else {
+                incTentativasPrisao(j);
+                return true;
+            }
         }
 
-        int passos = dados[0] + dados[1]; // soma dos dados define os passos a andar
-        int posInicial = j.getPosicao(); // posição antes do movimento
-        int total = tabuleiro.getTotalCasas(); // número total de casas do tabuleiro
-        int posFinal = (posInicial + passos) % total; // posição final usando aritmética modular
+        // 3 duplas seguidas => prisão
+        if (d1 == d2) {
+            doublesSeguidos++;
+            if (doublesSeguidos == 3) {
+                enviarParaPrisao(j);
+                doublesSeguidos = 0;
+                return true;
+            }
+        } else {
+            doublesSeguidos = 0;
+        }
+
+        int passos = d1 + d2;
+        int posInicial = j.getPosicao();
+        int total = tabuleiro.getTotalCasas();
+        int posFinal = (posInicial + passos) % total;
 
         // +$200 ao passar pelo início
         if (posInicial + passos >= total) j.receber(200);
 
-        j.setPosicao(posFinal); // atualiza a posição do jogador de acorrdo com a jogada
-        Casa c = tabuleiro.getCasa(posFinal); // obtém a casa atingida
-        c.acao(j, this); // executa a ação da casa (polimórfico)
-        return true; // indica que a jogada pôde ser completada
+        j.setPosicao(posFinal); // atualiza a posição do jogador
+        Casa c = tabuleiro.getCasa(posFinal);
+        c.acao(j, this); // executa a ação da casa
+
+        // Se o jogador faliu durante a ação da casa, avance imediatamente para o próximo jogador ATIVO.
+        if (!j.isAtivo()) {
+            proximoJogador();
+        }
+
+        return true;
     }
 
-    /** Tenta comprar a propriedade da casa atual (polimórfico, sem instanceof). */
-    public boolean comprarPropriedadeAtual() { // API para o Controller acionar compra (ainda não foi implementado)
-        Jogador j = getJogadorAtual(); // pega o jogador da vez
-        Casa c = tabuleiro.getCasa(j.getPosicao()); // casa atual do jogador
-        // tanto faz checar podeSerCompradaPor() antes; comprar() retorna false se não puder
+    public boolean comprarPropriedadeAtual() {
+        if (!getJogadorAtual().isAtivo()) {
+            proximoJogador();
+        }
+
+        Jogador j = getJogadorAtual();
+        Casa c = tabuleiro.getCasa(j.getPosicao());
+        // comprar() já retorna false se não puder
         return c.comprar(j, banco);
     }
 
-    /** Tenta construir (1 imóvel por vez) na casa atual (polimórfico). */
-    public boolean construirNaPropriedadeAtual() { //  chama a API para construir a casa se puder
-        Jogador j = getJogadorAtual(); // jogador da vez
-        Casa c = tabuleiro.getCasa(j.getPosicao()); // casa atual do jogador
-        return c.construir(j, banco); // manda para a casa
+    public boolean construirNaPropriedadeAtual() {
+        Jogador j = getJogadorAtual();
+        Casa c = tabuleiro.getCasa(j.getPosicao());
+        return c.construir(j, banco);
     }
 
-    public void proximoJogador() { // avanaça para o próximo jogador
+    public void proximoJogador() {
         if (jogadores.isEmpty()) return; // proteção para caso a lista esteja vazia
-        do { // pula jogadores falids
+        do { // pula jogadores falidos
             jogadorAtual = (jogadorAtual + 1) % jogadores.size(); // avança circularmente
         } while (!jogadores.get(jogadorAtual).isAtivo()); // repete até achar um jogador ativo
     }
 
-    public Jogador getJogadorAtual() { return jogadores.get(jogadorAtual); } // mostra o jogador da vez
-    public List<Jogador> getJogadores() { return Collections.unmodifiableList(jogadores); } // lista somente leitura
+    public void vendaForcada() {
+        Jogador j = getJogadorAtual();
+        if (j.getSaldo() >= 0) return; // nada a fazer
+        j.vendaForcada(banco);         // delega para o próprio jogador (sem reflexão)
+    }
+
+    public Jogador getJogadorAtual() {
+        if (jogadores.isEmpty()) throw new IllegalStateException("Sem jogadores");
+        // Se o atual estiver inativo (faliu), avance até encontrar um ativo
+        int guard = jogadores.size(); // evita loop infinito em casos extremos
+        while (guard-- > 0 && !jogadores.get(jogadorAtual).isAtivo()) {
+            proximoJogador();
+        }
+        return jogadores.get(jogadorAtual);
+    }
+
+    public Jogador getJogador(String nome) { // acesso via Map
+        return jogadorPorNome.get(nome);
+    }
+
+    public List<Jogador> getJogadores() { return new ArrayList<>(jogadores); } // lista somente leitura
     public Banco getBanco() { return banco; } // leitura do banco para operações internas
     public Tabuleiro getTabuleiro() { return tabuleiro; } // leitura do tabuleiro
+
+    private static void resetTentativasPrisao(Jogador j) {
+        try {
+            java.lang.reflect.Field f = j.getClass().getDeclaredField("tentativasPrisao");
+            f.setAccessible(true);
+            f.setInt(j, 0);
+        } catch (Exception ignored) {}
+    }
+
+    private static void incTentativasPrisao(Jogador j) {
+        try {
+            java.lang.reflect.Field f = j.getClass().getDeclaredField("tentativasPrisao");
+            f.setAccessible(true);
+            int v = f.getInt(j);
+            f.setInt(j, v + 1);
+        } catch (Exception ignored) {}
+    }
+
+    private static int getTentativasPrisao(Jogador j) {
+        try {
+            java.lang.reflect.Field f = j.getClass().getDeclaredField("tentativasPrisao");
+            f.setAccessible(true);
+            return f.getInt(j);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 }
