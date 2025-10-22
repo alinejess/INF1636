@@ -1,7 +1,7 @@
-package model; // pacote do Model
+package model;
 
 class VaParaPrisao extends Casa { // casa que envia o jogador diretamente para a prisão
-    public VaParaPrisao(String nome) { super(nome); } // construtor que define o nome
+    public VaParaPrisao(String nome) { super(nome); }
 
     @Override
     public void acao(Jogador jogador, Jogo jogo) { // ação ao cair nesta casa

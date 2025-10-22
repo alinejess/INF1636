@@ -1,22 +1,22 @@
-package model; // pacote do Model
+package model;
 
-import java.util.*; // importa List e ArrayList
+import java.util.*;
 
-class Banco { // representa o banco do jogo
-    private int saldo; // saldo do banco (controle interno)
+class Banco {
+    private int saldo;
     private final List<Propriedade> propriedades; // propriedades sob posse do banco
 
-    public Banco() { // construtor padrão
+    public Banco() {
         saldo = 200000;// saldo inicial arbitrário para o banco
         propriedades = new ArrayList<>(); // lista de propriedades do banco
     }
 
-    public void venderPropriedade(Propriedade p) { // registra a venda de uma propriedade no jogo
-        propriedades.remove(p); // remove do estoque do banco, caso esteja 
-        saldo += p.getPreco(); // o banco recebe o valor da venda a partir do preço da propriedade
+    public void venderPropriedade(Propriedade p) {
+        propriedades.remove(p); // remove do estoque do banco
+        saldo += p.getPreco(); // o banco recebe o valor da venda
     }
 
-    public void adicionarPropriedade(Propriedade p) { // adiciona propriedade ao stoque do banco
+    public void adicionarPropriedade(Propriedade p) { // adiciona propriedade ao estoque do banco
         if (!propriedades.contains(p)) propriedades.add(p); // evita duplicidade
     }
 

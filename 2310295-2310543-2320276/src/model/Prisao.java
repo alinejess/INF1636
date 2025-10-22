@@ -1,12 +1,11 @@
-package model; // pacote do model	
+package model;
 
-class Prisao extends Casa { // casa de prisão (não pública)
-    public Prisao(String nome) { // construtor padrão
+class Prisao extends Casa {
+    public Prisao(String nome) {
         super(nome); // define o nome da casa
     }
 
     @Override
     public void acao(Jogador jogador, Jogo jogo) { // ação ao cair na casa de prisão (visitante)
-        // visitante não tem nenhuma ação automática
     }
 }
