@@ -1,0 +1,8 @@
+package model;
+
+public enum EventoJogo {
+    DADOS_LANCADOS,
+    ESTADO_ATUALIZADO,
+    CARTA_SORTE_REVES_APLICADA,
+    ORDEM_SORTEADA
+}
