@@ -324,4 +324,44 @@ public class Testes {
 	    
 	    org.junit.Assert.assertEquals("C", m.obterJogadorDaVez().nome);
 	}
+
+	@Test
+	public void snapshotDeveRestaurarEstadoBasico() {
+	    GameModelo original = new GameModelo();
+	    original.adicionarJogador("Jogador Vermelho");
+	    original.adicionarJogador("Jogador Azul");
+	    original.sortearOrdemJogadores();
+
+	    original.deslocarPiao(1, 2); // cai na 3 e pode comprar
+	    org.junit.Assert.assertTrue(original.comprarPropriedade());
+	    org.junit.Assert.assertTrue(original.construirCasa());
+	    original.encerrarTurno(); // garante início de turno para salvar
+
+	    GameModelo.Snapshot snapshot = original.criarSnapshot();
+	    GameModelo restaurado = new GameModelo();
+	    restaurado.restaurar(snapshot);
+
+	    org.junit.Assert.assertEquals(original.obterJogadores().size(), restaurado.obterJogadores().size());
+	    restaurado.depurarMoverPara(3);
+	    GameModelo.VisaoCasa casa = restaurado.obterCasaAtual();
+	    org.junit.Assert.assertEquals("PROPRIEDADE", casa.tipo);
+	    org.junit.Assert.assertEquals(Integer.valueOf(1), casa.casas);
+	    org.junit.Assert.assertNotNull("Propriedade deveria ter proprietário após restauração", casa.proprietario);
+	    org.junit.Assert.assertTrue("Flag de turno deve indicar que é possível salvar após restauração",
+	            restaurado.estaNoInicioDoTurno());
+	    org.junit.Assert.assertEquals(original.getSaldoBanco(), restaurado.getSaldoBanco());
+	}
+
+	@Test
+	public void indicadorDeInicioDeTurnoDeveAlternar() {
+	    GameModelo m = new GameModelo();
+	    m.adicionarJogador("A");
+	    m.adicionarJogador("B");
+	    m.sortearOrdemJogadores();
+	    org.junit.Assert.assertTrue(m.estaNoInicioDoTurno());
+	    m.deslocarPiao(1, 1);
+	    org.junit.Assert.assertFalse(m.estaNoInicioDoTurno());
+	    m.encerrarTurno();
+	    org.junit.Assert.assertTrue(m.estaNoInicioDoTurno());
+	}
 }

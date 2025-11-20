@@ -1,13 +1,19 @@
 package model;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 import model.Carta;
 
 /** API pública do Model (Iteração 1). */
 public class GameModelo {
+
+    private static final int SNAPSHOT_VERSAO = 1;
 	
 	// --- Observer ---
 	private final List<OuvinteJogo> ouvintes = new ArrayList<OuvinteJogo>();
@@ -46,6 +52,7 @@ public class GameModelo {
     private int indiceInicioDaRodada = 0;
     
     private  String idUltimaCartaSorteReves = null;
+    private boolean inicioDeTurno = true;
 
     public GameModelo() {
         this.tabuleiro = Tabuleiro.criarPadrao();
@@ -58,6 +65,7 @@ public class GameModelo {
         this.numeroDaRodada = 1;
         this.salarioPorRodada = 0; 
         this.baralho = BaralhoSorteReves.criarPadrao();
+        this.inicioDeTurno = true;
     }
 
     // =========================
@@ -90,6 +98,7 @@ public class GameModelo {
     public boolean deslocarPiao(int d1, int d2) {
         Jogador j = jogadorAtual();
         ultimaPropriedadeAlcancada = null;
+        inicioDeTurno = false;
 
         // --- PRISÃO: só sai com dupla (ou carta em outro método) ---
         if (j.naPrisao) {
@@ -181,6 +190,7 @@ public class GameModelo {
     /** Encerra o turno e seleciona o próximo jogador ativo. Se “virou a rodada”, paga salário. */
     public void encerrarTurno() {
         if (jogadores.isEmpty()) {
+            inicioDeTurno = true;
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
         }
@@ -189,6 +199,7 @@ public class GameModelo {
         int proximo = proximoJogadorAtivo(indiceJogadorAtual);
         if (proximo < 0) { // ninguém ativo -> fim de jogo
             // opcional: jogoEncerrado = true;
+            inicioDeTurno = true;
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
         }
@@ -197,6 +208,7 @@ public class GameModelo {
 
         indiceJogadorAtual = proximo;
         ultimaPropriedadeAlcancada = null;
+        inicioDeTurno = true;
 
         if (virouRodada) {
             numeroDaRodada++;
@@ -258,6 +270,10 @@ public class GameModelo {
     /** Permite alterar o valor do salário por rodada (default 200). */
     public void configurarSalarioPorRodada(int valor) {
         if (valor >= 0) this.salarioPorRodada = valor;
+    }
+
+    public boolean estaNoInicioDoTurno() {
+        return inicioDeTurno;
     }
     
     // --- util interno ---
@@ -395,6 +411,7 @@ public class GameModelo {
         indiceJogadorAtual   = 0;
         indiceInicioDaRodada = 0;
         numeroDaRodada       = 1;
+        inicioDeTurno        = true;
 
         // debug opcional:
         StringBuilder sb = new StringBuilder();
@@ -591,6 +608,251 @@ public class GameModelo {
         ultimaPropriedadeAlcancada = null;
         log("[PRISÃO] %s foi para a prisão (pos=%d)", j.nome, j.posicao);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+    }
+
+    public Snapshot criarSnapshot() {
+        List<Snapshot.JogadorEstado> jogadoresEstado = new ArrayList<Snapshot.JogadorEstado>();
+        IdentityHashMap<Jogador, Integer> mapaIndices = new IdentityHashMap<Jogador, Integer>();
+        for (int i = 0; i < jogadores.size(); i++) {
+            Jogador jog = jogadores.get(i);
+            mapaIndices.put(jog, Integer.valueOf(i));
+            jogadoresEstado.add(new Snapshot.JogadorEstado(
+                    jog.nome,
+                    jog.saldo,
+                    jog.posicao,
+                    jog.naPrisao,
+                    jog.turnosNaPrisao,
+                    jog.cartasSaidaDaPrisao,
+                    jog.ativo));
+        }
+
+        List<Snapshot.PropriedadeEstado> propriedadesEstado = new ArrayList<Snapshot.PropriedadeEstado>();
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                Integer proprietario = (prop.proprietario == null ? null : mapaIndices.get(prop.proprietario));
+                propriedadesEstado.add(new Snapshot.PropriedadeEstado(
+                        i,
+                        prop.nome,
+                        prop.casas,
+                        prop.hotel,
+                        proprietario));
+            }
+        }
+
+        List<Snapshot.CartaEstado> cartasEstado = new ArrayList<Snapshot.CartaEstado>();
+        for (BaralhoSorteReves.CartaEstado carta : baralho.exportarEstado()) {
+            if (carta != null && carta.tipo != null) {
+                cartasEstado.add(new Snapshot.CartaEstado(carta.idImagem, carta.tipo.name(), carta.valor));
+            }
+        }
+
+        return new Snapshot(
+                SNAPSHOT_VERSAO,
+                jogadoresEstado,
+                propriedadesEstado,
+                cartasEstado,
+                baralho.isCartaSairDisponivel(),
+                indiceJogadorAtual,
+                indiceInicioDaRodada,
+                numeroDaRodada,
+                salarioPorRodada,
+                banco.getSaldo(),
+                idUltimaCartaSorteReves,
+                inicioDeTurno
+        );
+    }
+
+    public void restaurar(Snapshot snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        if (snapshot.jogadores == null || snapshot.jogadores.isEmpty()) {
+            throw new IllegalArgumentException("Snapshot sem jogadores.");
+        }
+
+        List<Jogador> novosJogadores = new ArrayList<Jogador>(snapshot.jogadores.size());
+        for (Snapshot.JogadorEstado estado : snapshot.jogadores) {
+            if (estado == null) continue;
+            Jogador j = new Jogador(estado.nome, estado.saldo, estado.posicao);
+            j.naPrisao = estado.naPrisao;
+            j.turnosNaPrisao = estado.turnosNaPrisao;
+            j.cartasSaidaDaPrisao = estado.cartasSaidaDaPrisao;
+            j.ativo = estado.ativo;
+            novosJogadores.add(j);
+        }
+        if (novosJogadores.isEmpty()) {
+            throw new IllegalArgumentException("Snapshot inválido: nenhum jogador reconstruído.");
+        }
+
+        this.jogadores = novosJogadores;
+        this.banco = new Banco(snapshot.saldoBanco);
+        this.indiceJogadorAtual = indiceValido(snapshot.indiceJogadorAtual, jogadores.size());
+        this.indiceInicioDaRodada = indiceValido(snapshot.indiceInicioDaRodada, jogadores.size());
+        this.numeroDaRodada = snapshot.numeroDaRodada <= 0 ? 1 : snapshot.numeroDaRodada;
+        this.salarioPorRodada = Math.max(0, snapshot.salarioPorRodada);
+        this.idUltimaCartaSorteReves = snapshot.idUltimaCartaSorte;
+        this.inicioDeTurno = snapshot.inicioDeTurno;
+        this.ultimaPropriedadeAlcancada = null;
+        this.carta = null;
+
+        restaurarPropriedades(snapshot.propriedades, this.jogadores);
+        restaurarBaralho(snapshot.baralhoCartas, snapshot.cartaSairDisponivel);
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+    }
+
+    private void restaurarPropriedades(List<Snapshot.PropriedadeEstado> estado, List<Jogador> jogadoresDestino) {
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                prop.proprietario = null;
+                prop.casas = 0;
+                prop.hotel = false;
+            }
+        }
+        if (estado == null) return;
+        for (Snapshot.PropriedadeEstado propEstado : estado) {
+            if (propEstado == null) continue;
+            if (propEstado.indice < 0 || propEstado.indice >= tabuleiro.tamanho()) continue;
+            Casa casa = tabuleiro.obter(propEstado.indice);
+            if (!(casa instanceof Propriedade)) continue;
+            Propriedade prop = (Propriedade) casa;
+            prop.casas = Math.max(0, propEstado.casas);
+            prop.hotel = propEstado.hotel;
+            if (propEstado.proprietario != null &&
+                    propEstado.proprietario >= 0 &&
+                    propEstado.proprietario < jogadoresDestino.size()) {
+                prop.proprietario = jogadoresDestino.get(propEstado.proprietario);
+            } else {
+                prop.proprietario = null;
+            }
+        }
+    }
+
+    private void restaurarBaralho(List<Snapshot.CartaEstado> cartas, boolean cartaSairDisponivel) {
+        List<BaralhoSorteReves.CartaEstado> estado = new ArrayList<BaralhoSorteReves.CartaEstado>();
+        if (cartas != null) {
+            for (Snapshot.CartaEstado c : cartas) {
+                if (c == null || c.tipo == null) continue;
+                try {
+                    BaralhoSorteReves.CartaEstado.Tipo tipo = BaralhoSorteReves.CartaEstado.Tipo.valueOf(c.tipo);
+                    estado.add(new BaralhoSorteReves.CartaEstado(c.idImagem, tipo, c.valor));
+                } catch (IllegalArgumentException ex) {
+                    // ignora carta inválida
+                }
+            }
+        }
+        baralho.restaurarEstado(estado, cartaSairDisponivel);
+    }
+
+    private static int indiceValido(int indice, int limite) {
+        if (limite <= 0) return 0;
+        if (indice < 0 || indice >= limite) return 0;
+        return indice;
+    }
+
+    public static final class Snapshot {
+        public final int versao;
+        public final List<JogadorEstado> jogadores;
+        public final List<PropriedadeEstado> propriedades;
+        public final List<CartaEstado> baralhoCartas;
+        public final boolean cartaSairDisponivel;
+        public final int indiceJogadorAtual;
+        public final int indiceInicioDaRodada;
+        public final int numeroDaRodada;
+        public final int salarioPorRodada;
+        public final int saldoBanco;
+        public final String idUltimaCartaSorte;
+        public final boolean inicioDeTurno;
+
+        public Snapshot(int versao,
+                        List<JogadorEstado> jogadores,
+                        List<PropriedadeEstado> propriedades,
+                        List<CartaEstado> baralhoCartas,
+                        boolean cartaSairDisponivel,
+                        int indiceJogadorAtual,
+                        int indiceInicioDaRodada,
+                        int numeroDaRodada,
+                        int salarioPorRodada,
+                        int saldoBanco,
+                        String idUltimaCartaSorte,
+                        boolean inicioDeTurno) {
+            this.versao = versao;
+            this.jogadores = copiaImutavel(jogadores);
+            this.propriedades = copiaImutavel(propriedades);
+            this.baralhoCartas = copiaImutavel(baralhoCartas);
+            this.cartaSairDisponivel = cartaSairDisponivel;
+            this.indiceJogadorAtual = indiceJogadorAtual;
+            this.indiceInicioDaRodada = indiceInicioDaRodada;
+            this.numeroDaRodada = numeroDaRodada;
+            this.salarioPorRodada = salarioPorRodada;
+            this.saldoBanco = saldoBanco;
+            this.idUltimaCartaSorte = idUltimaCartaSorte;
+            this.inicioDeTurno = inicioDeTurno;
+        }
+
+        private static <T> List<T> copiaImutavel(List<T> origem) {
+            if (origem == null || origem.isEmpty()) return Collections.emptyList();
+            return Collections.unmodifiableList(new ArrayList<T>(origem));
+        }
+
+        public static final class JogadorEstado {
+            public final String nome;
+            public final int saldo;
+            public final int posicao;
+            public final boolean naPrisao;
+            public final int turnosNaPrisao;
+            public final int cartasSaidaDaPrisao;
+            public final boolean ativo;
+
+            public JogadorEstado(String nome,
+                                 int saldo,
+                                 int posicao,
+                                 boolean naPrisao,
+                                 int turnosNaPrisao,
+                                 int cartasSaidaDaPrisao,
+                                 boolean ativo) {
+                this.nome = nome;
+                this.saldo = saldo;
+                this.posicao = posicao;
+                this.naPrisao = naPrisao;
+                this.turnosNaPrisao = turnosNaPrisao;
+                this.cartasSaidaDaPrisao = cartasSaidaDaPrisao;
+                this.ativo = ativo;
+            }
+        }
+
+        public static final class PropriedadeEstado {
+            public final int indice;
+            public final String nome;
+            public final int casas;
+            public final boolean hotel;
+            public final Integer proprietario;
+
+            public PropriedadeEstado(int indice,
+                                     String nome,
+                                     int casas,
+                                     boolean hotel,
+                                     Integer proprietario) {
+                this.indice = indice;
+                this.nome = nome;
+                this.casas = casas;
+                this.hotel = hotel;
+                this.proprietario = proprietario;
+            }
+        }
+
+        public static final class CartaEstado {
+            public final String idImagem;
+            public final String tipo;
+            public final int valor;
+
+            public CartaEstado(String idImagem, String tipo, int valor) {
+                this.idImagem = idImagem;
+                this.tipo = tipo;
+                this.valor = valor;
+            }
+        }
     }
 
     private static void log(String fmt, Object... args) {

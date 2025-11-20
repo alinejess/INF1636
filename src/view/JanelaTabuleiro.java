@@ -33,6 +33,8 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
     private final Button btnForcar = new Button("Lançar (forçar)");
     private final Button btnAleatorio = new Button("Lançar (aleatório)");
     private final Button btnEncerrar = new Button("Encerrar turno");
+    private final Button btnSalvar = new Button("Salvar jogo");
+    private final Button btnCarregar = new Button("Carregar jogo");
     
     public JanelaTabuleiro(ControladorJogo controlador, GameModelo modelo) {
     	
@@ -65,6 +67,8 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         barra.add(btnForcar);
         barra.add(btnAleatorio);
         barra.add(btnEncerrar);
+        barra.add(btnSalvar);
+        barra.add(btnCarregar);
         add(barra, BorderLayout.SOUTH);
         
         // Ações dos botões
@@ -86,9 +90,22 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
                 controlador.encerrarTurno(); 
             }
         });
+        btnSalvar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controlador.salvarPartida(JanelaTabuleiro.this);
+            }
+        });
+        btnCarregar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controlador.carregarPartida(JanelaTabuleiro.this);
+            }
+        });
 
         // Observer
         modelo.adicionarOuvinte(this);
+        atualizarEstadoSalvar();
     }
 
     public void mostrar() {
@@ -121,11 +138,13 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         }
         if (e == EventoJogo.ESTADO_ATUALIZADO) {
             canvas.repaint();
+            atualizarEstadoSalvar();
             return;
         }
         if (e == EventoJogo.DADOS_LANCADOS) {
             GameModelo.Lancamento l = (GameModelo.Lancamento) payload;
             canvas.definirDados(l.d1, l.d2);
+            atualizarEstadoSalvar();
             return;
         }
         if (e == EventoJogo.CARTA_SORTE_REVES_APLICADA && payload instanceof String) {
@@ -134,8 +153,10 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         if (e == EventoJogo.ORDEM_SORTEADA) {
             System.out.println("[UI] Ordem sorteada recebida na View.");
             canvas.repaint();
+            atualizarEstadoSalvar();
             return;
         }
+        atualizarEstadoSalvar();
     }
     
     private void atualizarCartaEmTela() {
@@ -157,4 +178,10 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
 
     public ControladorJogo getControlador() { return controlador; }
     public GameModelo getModelo() { return modelo; }
+
+    private void atualizarEstadoSalvar() {
+        if (btnSalvar != null) {
+            btnSalvar.setEnabled(modelo != null && modelo.estaNoInicioDoTurno());
+        }
+    }
 }

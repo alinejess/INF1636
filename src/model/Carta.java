@@ -21,6 +21,7 @@ final class CartaBancoPagaJogador extends Carta {
     private final int valor;
     CartaBancoPagaJogador(String idImagem, int valor) { super(idImagem); this.valor = valor; }
     @Override void aplicar(GameModelo jogo, Jogador j) { jogo.transferirBancoParaJogador(j, valor); }
+    int getValor() { return valor; }
 }
 
 /** -$X para o Banco */
@@ -28,6 +29,7 @@ final class CartaJogadorPagaBanco extends Carta {
     private final int valor;
     CartaJogadorPagaBanco(String idImagem, int valor) { super(idImagem); this.valor = valor; }
     @Override void aplicar(GameModelo jogo, Jogador j) { jogo.transferirJogadorParaBanco(j, valor); }
+    int getValor() { return valor; }
 }
 
 /** +$Y de cada jogador ativo */
@@ -35,6 +37,7 @@ final class CartaRecebeDeCadaJogador extends Carta {
     private final int porJogador;
     CartaRecebeDeCadaJogador(String idImagem, int porJogador) { super(idImagem); this.porJogador = porJogador; }
     @Override void aplicar(GameModelo jogo, Jogador j) { jogo.receberDeCadaJogador(j, porJogador); }
+    int getPorJogador() { return porJogador; }
 }
 
 /** Ganha a carta “Sair da Prisão” (única) */

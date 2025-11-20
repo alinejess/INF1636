@@ -47,7 +47,7 @@ public class JanelaInicial extends Frame {
         centro.add(escolhaQtd);
         add(centro, BorderLayout.CENTER);
 
-        Panel barra = new Panel(new FlowLayout(FlowLayout.CENTER));
+        Panel barra = new Panel(new FlowLayout(FlowLayout.CENTER, 12, 12));
         Button iniciar = new Button("Iniciar jogo");
         iniciar.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -56,7 +56,18 @@ public class JanelaInicial extends Frame {
                 JanelaInicial.this.controlador.iniciarNovaPartida(n); // <- usa o CAMPO
             }
         });
+        Button carregar = new Button("Carregar jogo");
+        carregar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                boolean carregou = JanelaInicial.this.controlador.carregarPartida(JanelaInicial.this);
+                if (carregou) {
+                    dispose();
+                }
+            }
+        });
         barra.add(iniciar);
+        barra.add(carregar);
         add(barra, BorderLayout.SOUTH);
     }
 
