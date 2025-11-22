@@ -89,6 +89,38 @@ public class ControladorJogo {
         }
     }
 
+    public void venderPropriedade(Component parent) {
+        if (!validarModelo(parent)) return;
+        java.util.List<String> propriedades = modelo.obterPropriedadesJogadorDaVez();
+        if (propriedades.isEmpty()) {
+            JOptionPane.showMessageDialog(parent,
+                    "Você não possui propriedades para vender.",
+                    "Venda não realizada",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        Object escolha = JOptionPane.showInputDialog(parent,
+                "Selecione a propriedade a vender (90% do valor):",
+                "Vender propriedade",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                propriedades.toArray(),
+                propriedades.get(0));
+        if (!(escolha instanceof String)) return;
+        int valor = modelo.venderPropriedadeDaVez((String) escolha);
+        if (valor <= 0) {
+            JOptionPane.showMessageDialog(parent,
+                    "Não foi possível vender a propriedade selecionada.",
+                    "Venda não realizada",
+                    JOptionPane.WARNING_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(parent,
+                    "Propriedade vendida. Você recebeu $" + valor + ".",
+                    "Venda concluída",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
     public void salvarPartida(Component parent) {
         if (modelo == null) {
             JOptionPane.showMessageDialog(parent, "Não há partida em andamento para salvar.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
@@ -134,36 +166,15 @@ public class ControladorJogo {
 
     private void mostrarResultadoFinal(Component parent) {
         if (modelo == null) return;
-        java.util.List<GameModelo.VisaoJogador> jogadores = new java.util.ArrayList<>(modelo.obterJogadores());
-        jogadores.sort((a, b) -> Integer.compare(calcularCapital(b), calcularCapital(a)));
+        java.util.List<GameModelo.RankingJogador> ranking = modelo.calcularRankingFinal();
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < jogadores.size(); i++) {
-            GameModelo.VisaoJogador j = jogadores.get(i);
-            sb.append(i + 1).append("º - ").append(j.nome)
-              .append(" | Capital: $").append(calcularCapital(j))
-              .append(j.ativo ? "" : " (falido)")
+        for (int i = 0; i < ranking.size(); i++) {
+            GameModelo.RankingJogador r = ranking.get(i);
+            sb.append(i + 1).append("º - ").append(r.nome)
+              .append(" | Capital: $").append(r.capital)
               .append("\n");
         }
         JOptionPane.showMessageDialog(parent, sb.toString(), "Resultado Final", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private int calcularCapital(GameModelo.VisaoJogador j) {
-        int capital = j.saldo;
-        if (j.propriedades != null) {
-            for (String prop : j.propriedades) {
-                // tenta extrair preço aproximado do texto "Nome (status)"
-                capital += estimarValorPropriedade(prop);
-            }
-        }
-        if (j.companhias != null) {
-            for (String comp : j.companhias) capital += 200; // valor aproximado das companhias
-        }
-        return capital;
-    }
-
-    private int estimarValorPropriedade(String descricao) {
-        // sem acesso direto ao preço aqui; poderia ser melhorado se VisaoJogador expusesse valores
-        return 0;
     }
     public boolean carregarPartida(Component parent) {
         JFileChooser chooser = criarFileChooser("Carregar partida");

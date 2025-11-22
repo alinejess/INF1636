@@ -1022,6 +1022,78 @@ public class GameModelo {
         return String.join(", ", itens);
     }
 
+    public java.util.List<String> obterPropriedadesJogadorDaVez() {
+        return new java.util.ArrayList<String>(propriedadesDoJogador(jogadorAtual()));
+    }
+
+    public int venderPropriedadeDaVez(String nomePropriedade) {
+        Jogador jogador = jogadorAtual();
+        Propriedade prop = encontrarPropriedadePorNome(nomePropriedade);
+        if (prop == null || prop.proprietario != jogador) return 0;
+
+        int valorBase = prop.preco + prop.casas * prop.custoCasa + (prop.hotel ? prop.custoHotel : 0);
+        int valorVenda = (int) Math.round(valorBase * 0.9);
+        banco.pagar(valorVenda);
+        jogador.saldo += valorVenda;
+        prop.proprietario = null;
+        prop.casas = 0;
+        prop.hotel = false;
+        log("[VENDA] %s vendeu %s para o banco por %d", jogador.nome, prop.nome, valorVenda);
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+        return valorVenda;
+    }
+
+    private Propriedade encontrarPropriedadePorNome(String nome) {
+        if (nome == null) return null;
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade p = (Propriedade) casa;
+                if (nome.equalsIgnoreCase(p.nome)) return p;
+            }
+        }
+        return null;
+    }
+
+    public java.util.List<RankingJogador> calcularRankingFinal() {
+        java.util.List<RankingJogador> ranking = new java.util.ArrayList<RankingJogador>();
+        for (int i = 0; i < jogadores.size(); i++) {
+            Jogador j = jogadores.get(i);
+            ranking.add(new RankingJogador(j.nome, calcularCapital(j)));
+        }
+        ranking.sort((a, b) -> Integer.compare(b.capital, a.capital));
+        return ranking;
+    }
+
+    private int calcularCapital(Jogador j) {
+        int capital = j.saldo;
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade p = (Propriedade) casa;
+                if (p.proprietario == j) {
+                    capital += (int) Math.round(p.preco * 0.9);
+                }
+            } else if (casa instanceof Companhia) {
+                Companhia c = (Companhia) casa;
+                if (c.proprietario == j) {
+                    capital += (int) Math.round(c.preco * 0.9);
+                }
+            }
+        }
+        return capital;
+    }
+
+    public static final class RankingJogador {
+        public final String nome;
+        public final int capital;
+
+        RankingJogador(String nome, int capital) {
+            this.nome = nome;
+            this.capital = capital;
+        }
+    }
+
     private static void log(String fmt, Object... args) {
         System.out.println(String.format(fmt, args));
     }

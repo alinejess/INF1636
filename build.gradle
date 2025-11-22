@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+}
+
+group = 'br.com.inf1636'
+version = '1.0-SNAPSHOT'
+
+def currentJavaVersion = JavaVersion.current()
+sourceCompatibility = currentJavaVersion
+
+def junitVersion = '4.13.2'
+dependencies {
+    testImplementation "junit:junit:${junitVersion}"
+}
+
+test {
+    useJUnit()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['tests']
+        }
+    }
+}

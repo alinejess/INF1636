@@ -37,6 +37,7 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
     private final JButton btnComprarProp = new JButton("Comprar propriedade");
     private final JButton btnConstruir = new JButton("Construir casa/hotel");
     private final JButton btnComprarCompanhia = new JButton("Comprar companhia");
+    private final JButton btnVenderPropriedade = new JButton("Vender propriedade");
     private final JButton btnEncerrarJogo = new JButton("Encerrar jogo");
     private final JToggleButton btnTelaCheia = new JToggleButton("Tela cheia");
 
@@ -74,6 +75,7 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
         barra.add(btnComprarProp);
         barra.add(btnConstruir);
         barra.add(btnComprarCompanhia);
+        barra.add(btnVenderPropriedade);
         barra.add(btnSalvar);
         barra.add(btnCarregar);
         barra.add(btnTelaCheia);
@@ -102,6 +104,7 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
         btnComprarProp.addActionListener(e -> controlador.comprarPropriedade(this));
         btnConstruir.addActionListener(e -> controlador.construirCasaOuHotel(this));
         btnComprarCompanhia.addActionListener(e -> controlador.comprarCompanhia(this));
+        btnVenderPropriedade.addActionListener(e -> controlador.venderPropriedade(this));
         btnEncerrarJogo.addActionListener(e -> controlador.encerrarJogo(this));
         btnTelaCheia.addActionListener(e -> alternarTelaCheia());
     }
@@ -171,40 +174,11 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
         boolean companhiaDisponivel = casa != null && "COMPANHIA".equals(casa.tipo) && casa.proprietario == null;
 
         btnSalvar.setEnabled(modelo.estaNoInicioDoTurno());
+        boolean possuiPropriedades = jogador != null && jogador.propriedades != null && !jogador.propriedades.isEmpty();
         btnComprarProp.setEnabled(propriedadeDisponivel);
         btnConstruir.setEnabled(propriedadeDoJogador);
         btnComprarCompanhia.setEnabled(companhiaDisponivel);
+        btnVenderPropriedade.setEnabled(possuiPropriedades);
         canvas.atualizarInformacoesJogador(jogador, casa);
-    }
-
-    private void _exDetalhes() {
-        if (modelo == null) return;
-        GameModelo.VisaoJogador jogador;
-        try {
-            jogador = modelo.obterJogadorDaVez();
-        } catch (Throwable t) {
-            return;
-        }
-        if (jogador == null) return;
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Saldo: $").append(jogador.saldo).append('\n');
-        sb.append("Posição: ").append(jogador.posicao).append('\n');
-        sb.append("Na prisão: ").append(jogador.naPrisao ? "Sim" : "Não");
-        if (jogador.temCartaSaidaDaPrisao) sb.append(" (possui carta de saída)");
-        sb.append('\n').append('\n').append("Propriedades:\n");
-        if (jogador.propriedades == null || jogador.propriedades.isEmpty()) {
-            sb.append("  — nenhuma\n");
-        } else {
-            for (String prop : jogador.propriedades) sb.append("  • ").append(prop).append('\n');
-        }
-        sb.append('\n').append("Companhias:\n");
-        if (jogador.companhias == null || jogador.companhias.isEmpty()) {
-            sb.append("  — nenhuma\n");
-        } else {
-            for (String comp : jogador.companhias) sb.append("  • ").append(comp).append('\n');
-        }
-
-        JOptionPane.showMessageDialog(this, sb.toString(), "Jogador " + jogador.nome, JOptionPane.INFORMATION_MESSAGE);
     }
 }
