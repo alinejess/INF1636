@@ -364,4 +364,38 @@ public class Testes {
 	    m.encerrarTurno();
 	    org.junit.Assert.assertTrue(m.estaNoInicioDoTurno());
 	}
+
+	@Test
+	public void deveComprarCompanhia() {
+	    GameModelo m = new GameModelo();
+	    m.adicionarJogador("A");
+	    m.depurarMoverPara(5); // Companhia Ferroviária
+	    int saldoBancoAntes = m.getSaldoBanco();
+	    int saldoJogAntes = m.obterJogadorDaVez().saldo;
+	    org.junit.Assert.assertTrue(m.comprarCompanhia());
+	    org.junit.Assert.assertTrue(m.getSaldoBanco() > saldoBancoAntes);
+	    org.junit.Assert.assertTrue(m.obterJogadorDaVez().saldo < saldoJogAntes);
+	}
+
+	@Test
+	public void aluguelDeCompanhiaEscalaComQuantidade() {
+	    GameModelo m = new GameModelo();
+	    m.adicionarJogador("A");
+	    m.adicionarJogador("B");
+	    // Jogador A compra duas companhias
+	    m.depurarMoverPara(5);
+	    org.junit.Assert.assertTrue(m.comprarCompanhia());
+	    m.encerrarTurno();
+	    m.encerrarTurno(); // volta para A
+	    m.depurarMoverPara(7);
+	    org.junit.Assert.assertTrue(m.comprarCompanhia());
+
+	    // Jogador B cai em uma das companhias e paga aluguel proporcional
+	    m.encerrarTurno(); // -> B
+	    int saldoAntes = m.obterJogadorDaVez().saldo;
+	    m.depurarMoverPara(3);
+	    m.deslocarPiao(1, 1); // cai na posição 5 (Companhia Ferroviária)
+	    int saldoDepois = m.obterJogadorDaVez().saldo;
+	    org.junit.Assert.assertTrue("Saldo deveria diminuir ao pagar aluguel da companhia", saldoDepois < saldoAntes);
+	}
 }

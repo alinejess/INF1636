@@ -51,3 +51,10 @@ final class CartaVaParaPrisao extends Carta {
     CartaVaParaPrisao(String idImagem) { super(idImagem); }
     @Override void aplicar(GameModelo jogo, Jogador j) { jogo.enviarParaPrisao(j); }
 }
+
+/** Vai para o ponto de partida e recebe um bônus. */
+final class CartaIrParaInicio extends Carta {
+    private final int bonus;
+    CartaIrParaInicio(String idImagem, int bonus) { super(idImagem); this.bonus = bonus; }
+    @Override void aplicar(GameModelo jogo, Jogador j) { jogo.enviarJogadorParaInicio(j, bonus); }
+}

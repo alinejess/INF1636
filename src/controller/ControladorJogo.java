@@ -59,6 +59,36 @@ public class ControladorJogo {
         modelo.aplicarSorteRevesNoJogadorDaVez();
     }
 
+    public void comprarPropriedade(Component parent) {
+        if (!validarModelo(parent)) return;
+        if (!modelo.comprarPropriedade()) {
+            JOptionPane.showMessageDialog(parent,
+                    "Não é possível comprar esta propriedade (já tem dono, não é uma propriedade ou falta dinheiro).",
+                    "Compra não realizada",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    public void comprarCompanhia(Component parent) {
+        if (!validarModelo(parent)) return;
+        if (!modelo.comprarCompanhia()) {
+            JOptionPane.showMessageDialog(parent,
+                    "Não é possível comprar esta companhia agora.",
+                    "Compra não realizada",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    public void construirCasaOuHotel(Component parent) {
+        if (!validarModelo(parent)) return;
+        if (!modelo.construirCasa()) {
+            JOptionPane.showMessageDialog(parent,
+                    "Para construir é necessário estar em uma propriedade própria, ter saldo e respeitar o limite de casas/hotel.",
+                    "Construção não realizada",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
     public void salvarPartida(Component parent) {
         if (modelo == null) {
             JOptionPane.showMessageDialog(parent, "Não há partida em andamento para salvar.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
@@ -123,6 +153,15 @@ public class ControladorJogo {
         return arquivo;
     }
 
+    private boolean validarModelo(Component parent) {
+        if (modelo != null) return true;
+        JOptionPane.showMessageDialog(parent,
+                "Nenhuma partida ativa.",
+                "Aviso",
+                JOptionPane.WARNING_MESSAGE);
+        return false;
+    }
+
     private void abrirJanelaTabuleiro(GameModelo novoModelo) {
         if (novoModelo == null) return;
         if (janelaTabuleiro != null) {
@@ -132,5 +171,11 @@ public class ControladorJogo {
         this.modelo = novoModelo;
         janelaTabuleiro = new JanelaTabuleiro(this, this.modelo);
         janelaTabuleiro.mostrar();
+    }
+
+    public void registrarEstadoFinal() {
+        if (modelo != null) {
+            modelo.imprimirEstadoCompleto();
+        }
     }
 }

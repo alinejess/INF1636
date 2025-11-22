@@ -35,6 +35,10 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
     private final Button btnEncerrar = new Button("Encerrar turno");
     private final Button btnSalvar = new Button("Salvar jogo");
     private final Button btnCarregar = new Button("Carregar jogo");
+    private final Button btnComprarProp = new Button("Comprar propriedade");
+    private final Button btnConstruir = new Button("Construir casa/hotel");
+    private final Button btnComprarCompanhia = new Button("Comprar companhia");
+    private final Button btnDetalhesJogador = new Button("Detalhes do jogador");
     
     public JanelaTabuleiro(ControladorJogo controlador, GameModelo modelo) {
     	
@@ -48,7 +52,10 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         setLayout(new BorderLayout());
         
         addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent e) { dispose(); }
+            @Override public void windowClosing(WindowEvent e) {
+                controlador.registrarEstadoFinal();
+                dispose();
+            }
         });
 
         // Canvas Java2D
@@ -67,8 +74,12 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         barra.add(btnForcar);
         barra.add(btnAleatorio);
         barra.add(btnEncerrar);
+        barra.add(btnComprarProp);
+        barra.add(btnConstruir);
+        barra.add(btnComprarCompanhia);
         barra.add(btnSalvar);
         barra.add(btnCarregar);
+        barra.add(btnDetalhesJogador);
         add(barra, BorderLayout.SOUTH);
         
         // Ações dos botões
@@ -90,6 +101,30 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
                 controlador.encerrarTurno(); 
             }
         });
+        btnComprarProp.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controlador.comprarPropriedade(JanelaTabuleiro.this);
+            }
+        });
+        btnConstruir.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controlador.construirCasaOuHotel(JanelaTabuleiro.this);
+            }
+        });
+        btnComprarCompanhia.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controlador.comprarCompanhia(JanelaTabuleiro.this);
+            }
+        });
+        btnDetalhesJogador.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                exibirDetalhesJogador();
+            }
+        });
         btnSalvar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -105,7 +140,7 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
 
         // Observer
         modelo.adicionarOuvinte(this);
-        atualizarEstadoSalvar();
+        atualizarEstadoInterface();
     }
 
     public void mostrar() {
@@ -138,13 +173,13 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         }
         if (e == EventoJogo.ESTADO_ATUALIZADO) {
             canvas.repaint();
-            atualizarEstadoSalvar();
+            atualizarEstadoInterface();
             return;
         }
         if (e == EventoJogo.DADOS_LANCADOS) {
             GameModelo.Lancamento l = (GameModelo.Lancamento) payload;
             canvas.definirDados(l.d1, l.d2);
-            atualizarEstadoSalvar();
+            atualizarEstadoInterface();
             return;
         }
         if (e == EventoJogo.CARTA_SORTE_REVES_APLICADA && payload instanceof String) {
@@ -153,10 +188,10 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
         if (e == EventoJogo.ORDEM_SORTEADA) {
             System.out.println("[UI] Ordem sorteada recebida na View.");
             canvas.repaint();
-            atualizarEstadoSalvar();
+            atualizarEstadoInterface();
             return;
         }
-        atualizarEstadoSalvar();
+        atualizarEstadoInterface();
     }
     
     private void atualizarCartaEmTela() {
@@ -167,21 +202,88 @@ public class JanelaTabuleiro extends Frame implements OuvinteJogo {
             return;
         }
 
-        // 2) Caso não haja carta de Sorte/Revés ativa, exiba carta da propriedade
+        // 2) Caso não haja carta de Sorte/Revés ativa, exiba carta da casa atual
         GameModelo.VisaoCasa v = modelo.obterCasaAtual();
-        if (v != null && "PROPRIEDADE".equals(v.tipo) && v.nome != null) {
-            canvas.registrarCartaPropriedade(v.nome);
-        } else {
-            canvas.limparCarta();
+        if (v != null && v.nome != null) {
+            if ("PROPRIEDADE".equals(v.tipo)) {
+                canvas.registrarCartaPropriedade(v.nome);
+                return;
+            }
+            if ("COMPANHIA".equals(v.tipo)) {
+                canvas.registrarCartaCompanhia(v.nome);
+                return;
+            }
         }
+        canvas.limparCarta();
     }
 
     public ControladorJogo getControlador() { return controlador; }
     public GameModelo getModelo() { return modelo; }
 
-    private void atualizarEstadoSalvar() {
+    private void atualizarEstadoInterface() {
         if (btnSalvar != null) {
             btnSalvar.setEnabled(modelo != null && modelo.estaNoInicioDoTurno());
         }
+        GameModelo.VisaoCasa casa = null;
+        GameModelo.VisaoJogador jogador = null;
+        try {
+            casa = modelo.obterCasaAtual();
+            jogador = modelo.obterJogadorDaVez();
+        } catch (Throwable ignored) {}
+
+        String nomeJogador = (jogador == null ? null : jogador.nome);
+        boolean propriedadeDisponivel = casa != null && "PROPRIEDADE".equals(casa.tipo) && casa.proprietario == null;
+        boolean propriedadeDoJogador = casa != null && "PROPRIEDADE".equals(casa.tipo) &&
+                casa.proprietario != null && casa.proprietario.equals(nomeJogador);
+        boolean companhiaDisponivel = casa != null && "COMPANHIA".equals(casa.tipo) && casa.proprietario == null;
+
+        btnComprarProp.setEnabled(propriedadeDisponivel);
+        btnConstruir.setEnabled(propriedadeDoJogador);
+        btnComprarCompanhia.setEnabled(companhiaDisponivel);
+        btnDetalhesJogador.setEnabled(modelo != null && jogador != null);
+        canvas.atualizarInformacoesJogador(jogador, casa);
+    }
+
+    private void exibirDetalhesJogador() {
+        if (modelo == null) return;
+        GameModelo.VisaoJogador jogador;
+        try {
+            jogador = modelo.obterJogadorDaVez();
+        } catch (Throwable t) {
+            return;
+        }
+        if (jogador == null) return;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Saldo: $").append(jogador.saldo).append('\n');
+        sb.append("Posição no tabuleiro: ").append(jogador.posicao).append('\n');
+        sb.append("Na prisão: ").append(jogador.naPrisao ? "Sim" : "Não");
+        if (jogador.temCartaSaidaDaPrisao) {
+            sb.append(" (possui carta de saída)");
+        }
+        sb.append('\n');
+
+        sb.append("Propriedades:\n");
+        if (jogador.propriedades == null || jogador.propriedades.isEmpty()) {
+            sb.append("  — nenhuma\n");
+        } else {
+            for (String prop : jogador.propriedades) {
+                sb.append("  • ").append(prop).append('\n');
+            }
+        }
+
+        sb.append("Companhias:\n");
+        if (jogador.companhias == null || jogador.companhias.isEmpty()) {
+            sb.append("  — nenhuma\n");
+        } else {
+            for (String comp : jogador.companhias) {
+                sb.append("  • ").append(comp).append('\n');
+            }
+        }
+
+        javax.swing.JOptionPane.showMessageDialog(this,
+                sb.toString(),
+                "Jogador " + jogador.nome,
+                javax.swing.JOptionPane.INFORMATION_MESSAGE);
     }
 }

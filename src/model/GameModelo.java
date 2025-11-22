@@ -150,7 +150,27 @@ public class GameModelo {
         j.saldo -= p.preco;
         banco.receber(p.preco);
         p.proprietario = j;
+        log("[COMPRA] %s adquiriu a propriedade %s por %d (saldo=%d)",
+                j.nome, p.nome, p.preco, j.saldo);
 
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+        return true;
+    }
+
+    public boolean comprarCompanhia() {
+        Jogador j = jogadorAtual();
+        Casa c = tabuleiro.obter(j.posicao);
+        if (!(c instanceof Companhia)) return false;
+
+        Companhia companhia = (Companhia) c;
+        if (companhia.proprietario != null) return false;
+        if (j.saldo < companhia.preco) return false;
+
+        j.saldo -= companhia.preco;
+        banco.receber(companhia.preco);
+        companhia.proprietario = j;
+        log("[COMPRA] %s adquiriu a companhia %s por %d (saldo=%d)",
+                j.nome, companhia.nome, companhia.preco, j.saldo);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         return true;
     }
@@ -173,12 +193,16 @@ public class GameModelo {
             j.saldo -= custo;
             banco.receber(custo);
             p.casas++;
+            log("[CONSTRUÇÃO] %s construiu uma casa em %s (casas=%d, saldo=%d)",
+                    j.nome, p.nome, p.casas, j.saldo);
         } else { // p.casas == 4 -> ergue hotel
             custo = p.custoHotel;     // 100% do preço
             if (j.saldo < custo) return false;
             j.saldo -= custo;
             banco.receber(custo);
             p.hotel = true;
+            log("[CONSTRUÇÃO] %s construiu um HOTEL em %s (saldo=%d)",
+                    j.nome, p.nome, j.saldo);
             // Mantemos p.casas = 4, pois a regra/planilha considera "4 casas e um hotel"
         }
 
@@ -191,6 +215,7 @@ public class GameModelo {
     public void encerrarTurno() {
         if (jogadores.isEmpty()) {
             inicioDeTurno = true;
+            imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
         }
@@ -200,6 +225,7 @@ public class GameModelo {
         if (proximo < 0) { // ninguém ativo -> fim de jogo
             // opcional: jogoEncerrado = true;
             inicioDeTurno = true;
+            imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
         }
@@ -294,7 +320,9 @@ public class GameModelo {
                 j.naPrisao,
                 j.ativo,
                 temCartaSaidaPrisao(j),
-                indiceJogadorAtual
+                indiceJogadorAtual,
+                propriedadesDoJogador(j),
+                companhiasDoJogador(j)
         );
     }
     
@@ -302,7 +330,8 @@ public class GameModelo {
         java.util.List<VisaoJogador> out = new java.util.ArrayList<VisaoJogador>();
         for (int i = 0; i < jogadores.size(); i++) {
             Jogador j = jogadores.get(i);
-            out.add(new VisaoJogador(j.nome, j.saldo, j.posicao, j.naPrisao, j.ativo, temCartaSaidaPrisao(j), i));
+            out.add(new VisaoJogador(j.nome, j.saldo, j.posicao, j.naPrisao, j.ativo, temCartaSaidaPrisao(j), i,
+                    propriedadesDoJogador(j), companhiasDoJogador(j)));
         }
         return out;
     }
@@ -315,12 +344,20 @@ public class GameModelo {
         public final boolean ativo;
         public final boolean temCartaSaidaDaPrisao;
         public final int indice;
+        public final java.util.List<String> propriedades;
+        public final java.util.List<String> companhias;
 
         VisaoJogador(String nome, int saldo, int posicao, boolean naPrisao, boolean ativo,
-        		boolean temCarta, int indice) {
-            this.nome = nome; this.saldo = saldo; this.posicao = posicao;
-            this.naPrisao = naPrisao; this.ativo = ativo; 
-            this.temCartaSaidaDaPrisao = temCarta; this.indice = indice;
+                boolean temCarta, int indice, java.util.List<String> propriedades, java.util.List<String> companhias) {
+            this.nome = nome;
+            this.saldo = saldo;
+            this.posicao = posicao;
+            this.naPrisao = naPrisao;
+            this.ativo = ativo;
+            this.temCartaSaidaDaPrisao = temCarta;
+            this.indice = indice;
+            this.propriedades = propriedades;
+            this.companhias = companhias;
         }
     }
 
@@ -332,6 +369,11 @@ public class GameModelo {
             String donoNome = (pr.proprietario == null ? null : pr.proprietario.nome);
             Integer donoIdx = (pr.proprietario == null ? null : Integer.valueOf(pr.proprietario.posicao));
             return VisaoCasa.propriedade(pr.nome, pr.preco, pr.custoCasa, pr.casas, pr.hotel, donoNome, donoIdx);
+        } else if (c instanceof Companhia) {
+            Companhia comp = (Companhia) c;
+            String donoNome = (comp.proprietario == null ? null : comp.proprietario.nome);
+            Integer donoIdx = (comp.proprietario == null ? null : Integer.valueOf(comp.proprietario.posicao));
+            return VisaoCasa.companhia(comp.nome, comp.preco, donoNome, donoIdx);
         } else if (c instanceof CasaEspecial) {
             CasaEspecial e = (CasaEspecial) c;
             return VisaoCasa.especial(e.getNome(), e.getTipo().name());
@@ -367,6 +409,10 @@ public class GameModelo {
             return new VisaoCasa(nome, "PROPRIEDADE", preco, custoCasa, casas, hotel, proprietario, indiceProprietario);
         }
 
+        static VisaoCasa companhia(String nome, int preco, String proprietario, Integer indiceProprietario) {
+            return new VisaoCasa(nome, "COMPANHIA", preco, null, null, null, proprietario, indiceProprietario);
+        }
+
         static VisaoCasa especial(String nome, String tipoEspecial) {
             return new VisaoCasa(nome, tipoEspecial, null, null, null, null, null, null);
         }
@@ -377,6 +423,19 @@ public class GameModelo {
     // =========================
 
     private Jogador jogadorAtual() { return jogadores.get(indiceJogadorAtual); }
+
+    private int contarCompanhiasDoJogador(Jogador proprietario) {
+        if (proprietario == null) return 0;
+        int total = 0;
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Companhia) {
+                Companhia comp = (Companhia) casa;
+                if (comp.proprietario == proprietario) total++;
+            }
+        }
+        return total;
+    }
 
     /** Próximo índice de jogador ativo em sentido horário. */
     private int proximoJogadorAtivo(int aPartirDe) {
@@ -444,21 +503,45 @@ public class GameModelo {
         // Vá para a prisão
         if (c instanceof CasaEspecial) {
             CasaEspecial e = (CasaEspecial) c;
-            if (e.getTipo() == CasaEspecial.Tipo.VA_PARA_PRISAO) {
-            	enviarParaPrisao(j);
-                idUltimaCartaSorteReves = carta.getIdImagem(); // garanta getIdImagem() nas subclasses de Carta
-                notificar(EventoJogo.ESTADO_ATUALIZADO, null);
-                return;
+            switch (e.getTipo()) {
+                case VA_PARA_PRISAO:
+                    enviarParaPrisao(j);
+                    idUltimaCartaSorteReves = carta.getIdImagem();
+                    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                    return;
+                case SORTE_REVES:
+                    processarSorteReves(j);
+                    return;
+                case LUCROS:
+                    transferirBancoParaJogador(j, 200);
+                    log("[CASA] %s recebeu 200 em lucros", j.nome);
+                    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                    return;
+                case DIVIDENDOS:
+                    transferirJogadorParaBanco(j, 200);
+                    log("[CASA] %s pagou 200 de imposto de renda", j.nome);
+                    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                    return;
+                default:
+                    ultimaPropriedadeAlcancada = null;
+                    idUltimaCartaSorteReves = null;
+                    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                    return;
             }
-            
-            if (e.getTipo() == CasaEspecial.Tipo.SORTE_REVES) {
-                processarSorteReves(j);
-                return;
-            }
-            
-            // Prisão/Parada/Sorte-Revés etc.: nada aqui
-            ultimaPropriedadeAlcancada = null;
+        }
+
+        // Companhia
+        if (c instanceof Companhia) {
             idUltimaCartaSorteReves = null;
+            ultimaPropriedadeAlcancada = null;
+
+            Companhia comp = (Companhia) c;
+            if (comp.proprietario == null) return;
+            if (comp.proprietario == j) return;
+
+            int quantidade = contarCompanhiasDoJogador(comp.proprietario);
+            int aluguel = comp.aluguel(quantidade);
+            transferirJogadorParaJogador(j, comp.proprietario, aluguel);
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
         }
@@ -550,22 +633,27 @@ public class GameModelo {
         }
     }
     
-   void falir(Jogador j) {
-	    // devolve propriedades ao banco (sem casas/hotel)
-	    for (int i = 0; i < tabuleiro.tamanho(); i++) {
-	        Casa casa = tabuleiro.obter(i);
-	        if (casa instanceof Propriedade) {
-	            Propriedade pr = (Propriedade) casa;
-	            if (pr.proprietario == j) {
-	                pr.proprietario = null;
-	                pr.casas = 0;
-	                pr.hotel = false;
-	            }
-	        }
-	    }
-	    j.ativo = false;
-	    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
-	}
+	    void falir(Jogador j) {
+		    // devolve propriedades ao banco (sem casas/hotel)
+		    for (int i = 0; i < tabuleiro.tamanho(); i++) {
+		        Casa casa = tabuleiro.obter(i);
+		        if (casa instanceof Propriedade) {
+		            Propriedade pr = (Propriedade) casa;
+		            if (pr.proprietario == j) {
+		                pr.proprietario = null;
+		                pr.casas = 0;
+		                pr.hotel = false;
+		            }
+		        } else if (casa instanceof Companhia) {
+		            Companhia cp = (Companhia) casa;
+		            if (cp.proprietario == j) {
+		                cp.proprietario = null;
+		            }
+		        }
+		    }
+		    j.ativo = false;
+		    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+		}
     
  // --- API para Cartas (usada por Carta.java) ---
 
@@ -607,6 +695,21 @@ public class GameModelo {
         j.turnosNaPrisao = 0;
         ultimaPropriedadeAlcancada = null;
         log("[PRISÃO] %s foi para a prisão (pos=%d)", j.nome, j.posicao);
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+    }
+
+    public void enviarJogadorParaInicio(Jogador j, int bonus) {
+        j.posicao = 0;
+        j.naPrisao = false;
+        j.turnosNaPrisao = 0;
+        ultimaPropriedadeAlcancada = null;
+        idUltimaCartaSorteReves = null;
+        log("[SORTE/REVES] %s foi enviado ao ponto de partida", j.nome);
+        if (bonus > 0) {
+            banco.pagar(bonus);
+            j.saldo += bonus;
+            log("[$] Banco -> %s: +%d (saldo=%d)", j.nome, bonus, j.saldo);
+        }
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
     }
 
@@ -853,6 +956,70 @@ public class GameModelo {
                 this.valor = valor;
             }
         }
+    }
+
+    public void imprimirEstadoCompleto() {
+        Jogador atual = null;
+        try {
+            atual = jogadorAtual();
+        } catch (Throwable ignored) {}
+
+        log("===== ESTADO ATUAL DO JOGO =====");
+        log("Rodada: %d | Jogador atual: %s | Saldo do banco: %d",
+                numeroDaRodada,
+                (atual == null ? "<desconhecido>" : atual.nome),
+                banco.getSaldo());
+        for (int i = 0; i < jogadores.size(); i++) {
+            logJogadorCompleto(jogadores.get(i), i);
+        }
+        log("===== FIM DO ESTADO =====");
+    }
+
+    private void logJogadorCompleto(Jogador jogador, int indice) {
+        log("[Jogador %d] %s | saldo=%d | pos=%d | ativo=%s | prisão=%s | cartas-saida=%d",
+                indice + 1,
+                jogador.nome,
+                jogador.saldo,
+                jogador.posicao,
+                jogador.ativo,
+                jogador.naPrisao,
+                jogador.cartasSaidaDaPrisao);
+        log("   Propriedades: %s", formatarLista(propriedadesDoJogador(jogador)));
+        log("   Companhias: %s", formatarLista(companhiasDoJogador(jogador)));
+    }
+
+    private java.util.List<String> propriedadesDoJogador(Jogador jogador) {
+        java.util.List<String> lista = new java.util.ArrayList<String>();
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                if (prop.proprietario == jogador) {
+                    String status = prop.hotel ? "HOTEL" : (prop.casas + " casa(s)");
+                    lista.add(prop.nome + " (" + status + ")");
+                }
+            }
+        }
+        return lista;
+    }
+
+    private java.util.List<String> companhiasDoJogador(Jogador jogador) {
+        java.util.List<String> lista = new java.util.ArrayList<String>();
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Companhia) {
+                Companhia comp = (Companhia) casa;
+                if (comp.proprietario == jogador) {
+                    lista.add(comp.nome);
+                }
+            }
+        }
+        return lista;
+    }
+
+    private String formatarLista(java.util.List<String> itens) {
+        if (itens.isEmpty()) return "nenhum";
+        return String.join(", ", itens);
     }
 
     private static void log(String fmt, Object... args) {

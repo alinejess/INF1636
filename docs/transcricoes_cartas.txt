@@ -1,0 +1,110 @@
+
+chance1.png
+SORTE
+A prefeitura mandou abrir uma nova avenida, para o que desapropriou vários prédios.
+Em consequência seu terreno valorizou.
+Receba 25
+
+chance10.png
+SORTE
+Avance até o ponto de partida e...
+Receba 200
+
+chance11.png
+SORTE
+Você apostou com os parceiros deste jogo e ganhou.
+Receba 50 de cada um
+
+chance12.png
+SORTE
+Você saiu de férias e se hospedou na casa de um amigo. Você economizou o hotel.
+Receba 45
+
+chance13.png
+SORTE
+Inesperadamente você recebeu uma herança que já estava esquecida.
+Receba 100
+
+chance14.png
+SORTE
+Você foi promovido a diretor da sua empresa.
+Receba 100
+
+chance15.png
+SORTE
+Você jogou na Loteria Esportiva com um grupo de amigos. Ganharam!
+Receba 20
+
+chance16.png
+REVÉS
+Um amigo pediu-lhe um empréstimo. Você não pode recusar.
+Pague 15
+
+chance17.png
+REVÉS
+Você vai casar e está comprando um apartamento novo.
+Pague 25
+
+chance18.png
+REVÉS
+O médico lhe recomendou repouso num bom hotel de montanha.
+Pague 45
+
+chance19.png
+REVÉS
+Você achou interessante assistir à estreia da temporada de ballet. Compre os ingressos.
+Pague 30
+
+chance20.png
+REVÉS
+Parabéns! Você convidou seus amigos para festejar o aniversário.
+Pague 100
+
+chance21.png
+REVÉS
+Você é papai outra vez! Despesas de maternidade.
+Pague 100
+
+chance22.png
+REVÉS
+Papai os livros do ano passado não servem mais, preciso de livros novos.
+Pague 40
+
+chance23.png
+REVÉS
+Vá para a prisão sem receber nada. (talvez eu lhe faça uma visita...)
+
+chance24.png
+REVÉS
+Você estacionou seu carro em lugar proibido e entrou na contra mão.
+Pague 30
+
+chance25.png
+REVÉS
+Você acaba de receber a comunicação do Imposto de Renda.
+Pague 50
+
+chance26.png
+REVÉS
+Seu clube está ampliando as piscinas. Os sócios devem contribuir.
+Pague 25
+
+chance27.png
+REVÉS
+Renove a tempo a licença do seu automóvel.
+Pague 30
+
+chance28.png
+REVÉS
+Seus parentes do interior vieram passar umas “férias” na sua casa.
+Pague 45
+
+chance29.png
+REVÉS
+Seus filhos já vão para a escola. Pague a primeira mensalidade.
+Pague 50
+
+chance30.png
+REVÉS
+A geada prejudicou a sua safra de café.
+Pague 50

@@ -29,6 +29,8 @@ class TabuleiroCanvas extends Canvas {
     
     // pinos
     private final java.util.List<Image> imgPinos = new java.util.ArrayList<Image>(6);
+    private String painelTitulo = null;
+    private final java.util.List<String> painelLinhas = new java.util.ArrayList<String>();
 
     // Layout geral
     private final int alturaTopo = 96;   // faixa superior (dados/indicação do jogador)
@@ -44,6 +46,18 @@ class TabuleiroCanvas extends Canvas {
     private String origemCarta = null;   // "sorte" | "propriedade" | null
     private String idCartaAtual = null;  // ex.: "chance14.png"
     private String nomePropAtual = null; // ex.: "Av. Atlântica"
+
+    private static final java.util.Map<String, String> MAPA_COMPANHIAS;
+    static {
+        java.util.Map<String, String> mapa = new java.util.HashMap<String, String>();
+        mapa.put("Companhia Ferroviária", "companhias/company1.png");
+        mapa.put("Companhia de Viação", "companhias/company2.png");
+        mapa.put("Companhia de Táxi", "companhias/company3.png");
+        mapa.put("Companhia de Navegação", "companhias/company4.png");
+        mapa.put("Companhia de Aviação", "companhias/company5.png");
+        mapa.put("Companhia de Táxi Aéreo", "companhias/company6.png");
+        MAPA_COMPANHIAS = java.util.Collections.unmodifiableMap(mapa);
+    }
 
     TabuleiroCanvas(GameModelo modelo, ControladorJogo controlador) {
         this.modelo = modelo;
@@ -131,6 +145,31 @@ class TabuleiroCanvas extends Canvas {
         }
         repaint();
     }
+
+    void registrarCartaCompanhia(String nomeCompanhia) {
+        this.idCartaAtual = null;
+        this.nomePropAtual = nomeCompanhia;
+        this.origemCarta = (nomeCompanhia != null ? "companhia" : null);
+        this.imagemCarta = null;
+
+        if (nomeCompanhia == null) {
+            repaint();
+            return;
+        }
+
+        String caminho = MAPA_COMPANHIAS.get(nomeCompanhia);
+        if (caminho != null) {
+            Image img = RecursosImagem.get().carregar(caminho);
+            if (img != null) {
+                this.imagemCarta = img;
+            } else {
+                System.out.println("[COMP] NÃO encontrada: " + caminho);
+            }
+        } else {
+            System.out.println("[COMP] Sem mapeamento para: " + nomeCompanhia);
+        }
+        repaint();
+    }
     
     private static String[] concat(String[] a, String[] b) {
         String[] r = new String[a.length + b.length];
@@ -144,6 +183,65 @@ class TabuleiroCanvas extends Canvas {
         this.nomePropAtual = null;
         this.origemCarta = null;
         this.imagemCarta = null;
+        repaint();
+    }
+
+    void atualizarInformacoesJogador(GameModelo.VisaoJogador jogador, GameModelo.VisaoCasa visaoCasa) {
+        if (jogador == null) {
+            limparInformacoesJogador();
+            return;
+        }
+        this.painelTitulo = jogador.nome;
+        this.painelLinhas.clear();
+        painelLinhas.add("Saldo: $" + jogador.saldo);
+        painelLinhas.add("Posição: " + jogador.posicao);
+        painelLinhas.add("Na prisão: " + (jogador.naPrisao ? "Sim" : "Não"));
+        if (jogador.temCartaSaidaDaPrisao) {
+            painelLinhas.add("Carta: Sair da prisão");
+        }
+        painelLinhas.add(" ");
+        painelLinhas.add("Propriedades:");
+        if (jogador.propriedades == null || jogador.propriedades.isEmpty()) {
+            painelLinhas.add("  — nenhuma");
+        } else {
+            for (String prop : jogador.propriedades) {
+                painelLinhas.add("  • " + prop);
+            }
+        }
+        painelLinhas.add(" ");
+        painelLinhas.add("Companhias:");
+        if (jogador.companhias == null || jogador.companhias.isEmpty()) {
+            painelLinhas.add("  — nenhuma");
+        } else {
+            for (String comp : jogador.companhias) {
+                painelLinhas.add("  • " + comp);
+            }
+        }
+        if (visaoCasa != null && visaoCasa.nome != null) {
+            painelLinhas.add(" ");
+            painelLinhas.add("Casa atual: " + visaoCasa.nome);
+            if ("PROPRIEDADE".equals(visaoCasa.tipo)) {
+                if (visaoCasa.preco != null) painelLinhas.add("  Preço: $" + visaoCasa.preco);
+                String dono = (visaoCasa.proprietario == null ? "Disponível" : visaoCasa.proprietario);
+                painelLinhas.add("  Dono: " + dono);
+                if (visaoCasa.hotel != null && visaoCasa.hotel.booleanValue()) {
+                    painelLinhas.add("  Construções: HOTEL");
+                } else {
+                    int casas = (visaoCasa.casas != null ? visaoCasa.casas.intValue() : 0);
+                    painelLinhas.add("  Casas: " + casas);
+                }
+            } else if ("COMPANHIA".equals(visaoCasa.tipo)) {
+                if (visaoCasa.preco != null) painelLinhas.add("  Preço: $" + visaoCasa.preco);
+                String dono = (visaoCasa.proprietario == null ? "Disponível" : visaoCasa.proprietario);
+                painelLinhas.add("  Dono: " + dono);
+            }
+        }
+        repaint();
+    }
+
+    void limparInformacoesJogador() {
+        this.painelTitulo = null;
+        this.painelLinhas.clear();
         repaint();
     }
     
@@ -213,6 +311,7 @@ class TabuleiroCanvas extends Canvas {
             desenharPinos(g2, areaUtil);
             
             desenharCartaCentral(g2, areaUtil);
+            desenharPainelInformacoes(g2, area);
             
 //         // ===== CARTA SORTE/REVÉS =====
 //            if (imagemCarta != null) {                
@@ -374,13 +473,11 @@ class TabuleiroCanvas extends Canvas {
     }
 
     // helper simples
-    private static final class Point { 
-    	final int x, y; 
-    	Point(int x, int y){ 
-    		this.x=x; 
-    		this.y=y; 
-    	} 
+    private static final class Point {
+        final int x, y;
+        Point(int x, int y) { this.x = x; this.y = y; }
     }
+
 
     /* ========================== GEOMETRIA ========================== */
 
@@ -393,25 +490,21 @@ class TabuleiroCanvas extends Canvas {
         return new Rectangle(x, y, lado, lado);
     }
 
-    /** recorta um pouco para dentro da imagem (compensar bordas do PNG). */
     private Rectangle areaUtilDoTabuleiro(Rectangle area) {
         int dx = (int) Math.round(area.width  * MARGEM_IMAGEM);
         int dy = (int) Math.round(area.height * MARGEM_IMAGEM);
         return new Rectangle(area.x + dx, area.y + dy, area.width - 2 * dx, area.height - 2 * dy);
     }
 
-    /** tamanho (quadrado) do canto. */
     private int tamanhoCanto(Rectangle area) {
         return Math.max(8, (int) Math.round(area.width * FATOR_CANTO));
     }
 
-    /** espessura da “borda” nas arestas (altura das horizontais / largura das verticais). */
     private int espessuraAresta(Rectangle area) {
         int C = tamanhoCanto(area);
         return Math.max(4, (int) Math.round(C * FATOR_ARESTA));
     }
 
-    /** largura/altura base das casas de aresta ao longo do lado (comprimento). */
     private int larguraArestaBase(Rectangle area) {
         int C = tamanhoCanto(area);
         int restante = area.width - 2 * C;
@@ -421,73 +514,88 @@ class TabuleiroCanvas extends Canvas {
     private int restoAresta(Rectangle area) {
         int C = tamanhoCanto(area);
         int restante = area.width - 2 * C;
-        return Math.max(0, restante - 9 * larguraArestaBase(area)); // 0..8
+        return Math.max(0, restante - 9 * larguraArestaBase(area));
     }
 
-    /** soma das larguras das primeiras n casas de aresta (distribui o resto). */
     private int somaLarguras(int n, Rectangle area) {
         if (n <= 0) return 0;
         int base = larguraArestaBase(area);
         int resto = restoAresta(area);
-        int extra = Math.min(n, resto); // +1px nas primeiras 'resto' casas
+        int extra = Math.min(n, resto);
         return n * base + extra;
     }
 
-    /**
-     * Retângulo da casa i (0..39) com:
-     * - Cantos CxC
-     * - Arestas com espessura T (T < C): horizontais T de altura, verticais T de largura.
-     */
     private Rectangle retanguloDaCasa(Rectangle area, int i) {
-        int C = tamanhoCanto(area);          // canto grande
-        int T = espessuraAresta(area);       // espessura das arestas (mais fina)
-        int E = larguraArestaBase(area);     // comprimento base das casas de aresta
+        int C = tamanhoCanto(area);
+        int T = espessuraAresta(area);
+        int E = larguraArestaBase(area);
 
         int x, y, w, h;
 
-        // Cantos (0,10,20,30)
         if (i == 0)  { x = area.x + area.width  - C; y = area.y + area.height - C; w = C; h = C; return new Rectangle(x, y, w, h); }
         if (i == 10) { x = area.x;               y = area.y + area.height - C; w = C; h = C; return new Rectangle(x, y, w, h); }
         if (i == 20) { x = area.x;               y = area.y;                    w = C; h = C; return new Rectangle(x, y, w, h); }
         if (i == 30) { x = area.x + area.width  - C; y = area.y;               w = C; h = C; return new Rectangle(x, y, w, h); }
 
-        // Base (inferior): direita → esquerda (1..9)
         if (i >= 1 && i <= 9) {
-            int k = i; // 1..9
+            int k = i;
             int largura = E + (k <= restoAresta(area) ? 1 : 0);
             x = area.x + area.width - C - somaLarguras(k, area);
-            y = area.y + area.height - T;   // ← usa T (mais fino)
+            y = area.y + area.height - T;
             w = largura; h = T;
             return new Rectangle(x, y, w, h);
         }
 
-        // Esquerda: baixo → cima (11..19)
         if (i >= 11 && i <= 19) {
-            int k = i - 10; // 1..9
+            int k = i - 10;
             int altura = E + (k <= restoAresta(area) ? 1 : 0);
             x = area.x;
             y = area.y + area.height - C - somaLarguras(k, area);
-            w = T;          // ← usa T (mais fino)
+            w = T;
             h = altura;
             return new Rectangle(x, y, w, h);
         }
 
-        // Topo: esquerda → direita (21..29)
         if (i >= 21 && i <= 29) {
-            int k = i - 20; // 1..9
+            int k = i - 20;
             int largura = E + (k <= restoAresta(area) ? 1 : 0);
             x = area.x + C + somaLarguras(k - 1, area);
             y = area.y;
-            w = largura; h = T; // ← usa T
+            w = largura; h = T;
             return new Rectangle(x, y, w, h);
         }
 
-        // Direita: cima → baixo (31..39)
-        int k = i - 30; // 1..9
+        int k = i - 30;
         int altura = E + (k <= restoAresta(area) ? 1 : 0);
-        x = area.x + area.width - T; // ← usa T
+        x = area.x + area.width - T;
         y = area.y + C + somaLarguras(k - 1, area);
         w = T; h = altura;
         return new Rectangle(x, y, w, h);
     }
+
+    private void desenharPainelInformacoes(Graphics2D g2, Rectangle areaTabuleiro) {
+        if (painelTitulo == null || painelLinhas.isEmpty()) return;
+        int pad = Math.max(12, (int)(getWidth() * 0.015));
+        int disponivel = areaTabuleiro.x - pad;
+        int panelWidth = Math.min(260, disponivel);
+        if (panelWidth < 150) return;
+        int panelX = areaTabuleiro.x - panelWidth - pad;
+        int panelY = areaTabuleiro.y;
+        int panelHeight = areaTabuleiro.height;
+        g2.setColor(new Color(250, 248, 240, 230));
+        g2.fillRoundRect(panelX, panelY, panelWidth, panelHeight, 18, 18);
+        g2.setColor(new Color(200, 200, 200));
+        g2.drawRoundRect(panelX, panelY, panelWidth, panelHeight, 18, 18);
+        g2.setColor(Color.DARK_GRAY);
+        g2.setFont(new Font("SansSerif", Font.BOLD, 16));
+        g2.drawString(painelTitulo, panelX + 16, panelY + 28);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        int cursorY = panelY + 52;
+        for (String linha : painelLinhas) {
+            if (" ".equals(linha)) { cursorY += 8; continue; }
+            g2.drawString(linha, panelX + 12, cursorY);
+            cursorY += 18;
+            if (cursorY > panelY + panelHeight - 20) break;
+        }
     }
+}

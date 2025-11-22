@@ -36,9 +36,9 @@ final class BaralhoSorteReves {
         b.cartas.add(new CartaBancoPagaJogador("chance6.png", 50));
         b.cartas.add(new CartaBancoPagaJogador("chance7.png", 100));
         b.cartas.add(new CartaBancoPagaJogador("chance8.png", 100));
-        if (b.cartaSairDisponivel) b.cartas.add(new CartaSairDaPrisao("chance9.png")); // “Sair da Prisão” é única: entra só se disponível
-        b.cartas.add(new CartaBancoPagaJogador("chance10.png", 200));
-        b.cartas.add(new CartaRecebeDeCadaJogador("chance11.png", 50)); // recebe 50 de cada jogador
+        if (b.cartaSairDisponivel) b.cartas.add(new CartaSairDaPrisao("chance9.png"));
+        b.cartas.add(new CartaIrParaInicio("chance10.png", 200));
+        b.cartas.add(new CartaRecebeDeCadaJogador("chance11.png", 50));
         b.cartas.add(new CartaBancoPagaJogador("chance12.png", 45));
         b.cartas.add(new CartaBancoPagaJogador("chance13.png", 100));
         b.cartas.add(new CartaBancoPagaJogador("chance14.png", 100));
