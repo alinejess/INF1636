@@ -633,7 +633,7 @@ public class GameModelo {
         }
     }
     
-	    void falir(Jogador j) {
+    void falir(Jogador j) {
 		    // devolve propriedades ao banco (sem casas/hotel)
 		    for (int i = 0; i < tabuleiro.tamanho(); i++) {
 		        Casa casa = tabuleiro.obter(i);
@@ -643,17 +643,17 @@ public class GameModelo {
 		                pr.proprietario = null;
 		                pr.casas = 0;
 		                pr.hotel = false;
-		            }
-		        } else if (casa instanceof Companhia) {
-		            Companhia cp = (Companhia) casa;
-		            if (cp.proprietario == j) {
-		                cp.proprietario = null;
-		            }
-		        }
-		    }
-		    j.ativo = false;
-		    notificar(EventoJogo.ESTADO_ATUALIZADO, null);
-		}
+                    }
+                } else if (casa instanceof Companhia) {
+                    Companhia cp = (Companhia) casa;
+                    if (cp.proprietario == j) {
+                        cp.proprietario = null;
+                    }
+                }
+            }
+            j.ativo = false;
+            notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+        }
     
  // --- API para Cartas (usada por Carta.java) ---
 

@@ -117,6 +117,54 @@ public class ControladorJogo {
         }
     }
 
+    public void encerrarJogo(Component parent) {
+        if (modelo == null) {
+            JOptionPane.showMessageDialog(parent, "Não há partida em andamento.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        registrarEstadoFinal();
+        mostrarResultadoFinal(parent);
+        if (janelaTabuleiro != null) {
+            janelaTabuleiro.setVisible(false);
+            janelaTabuleiro.dispose();
+            janelaTabuleiro = null;
+        }
+        modelo = null;
+    }
+
+    private void mostrarResultadoFinal(Component parent) {
+        if (modelo == null) return;
+        java.util.List<GameModelo.VisaoJogador> jogadores = new java.util.ArrayList<>(modelo.obterJogadores());
+        jogadores.sort((a, b) -> Integer.compare(calcularCapital(b), calcularCapital(a)));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < jogadores.size(); i++) {
+            GameModelo.VisaoJogador j = jogadores.get(i);
+            sb.append(i + 1).append("º - ").append(j.nome)
+              .append(" | Capital: $").append(calcularCapital(j))
+              .append(j.ativo ? "" : " (falido)")
+              .append("\n");
+        }
+        JOptionPane.showMessageDialog(parent, sb.toString(), "Resultado Final", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private int calcularCapital(GameModelo.VisaoJogador j) {
+        int capital = j.saldo;
+        if (j.propriedades != null) {
+            for (String prop : j.propriedades) {
+                // tenta extrair preço aproximado do texto "Nome (status)"
+                capital += estimarValorPropriedade(prop);
+            }
+        }
+        if (j.companhias != null) {
+            for (String comp : j.companhias) capital += 200; // valor aproximado das companhias
+        }
+        return capital;
+    }
+
+    private int estimarValorPropriedade(String descricao) {
+        // sem acesso direto ao preço aqui; poderia ser melhorado se VisaoJogador expusesse valores
+        return 0;
+    }
     public boolean carregarPartida(Component parent) {
         JFileChooser chooser = criarFileChooser("Carregar partida");
         int resultado = chooser.showOpenDialog(parent);
@@ -170,7 +218,7 @@ public class ControladorJogo {
         }
         this.modelo = novoModelo;
         janelaTabuleiro = new JanelaTabuleiro(this, this.modelo);
-        janelaTabuleiro.mostrar();
+        janelaTabuleiro.setVisible(true);
     }
 
     public void registrarEstadoFinal() {
