@@ -41,6 +41,7 @@ public class ControladorJogo {
     
     public void lancarAleatorio() {
         if (modelo == null) return;
+        if (!modelo.podeLancarDados()) return;
         int d1 = 1 + new Random().nextInt(6);
         int d2 = 1 + new Random().nextInt(6);
         modelo.registrarLancamento(d1, d2);
@@ -50,6 +51,7 @@ public class ControladorJogo {
     public void lancarForcado(int d1, int d2) {
         if (modelo == null) return;
         if (d1 < 1 || d1 > 6 || d2 < 1 || d2 > 6) return;
+        if (!modelo.podeLancarDados()) return;
         modelo.registrarLancamento(d1, d2);
         modelo.deslocarPiao(d1, d2);
     }
@@ -83,7 +85,7 @@ public class ControladorJogo {
         if (!validarModelo(parent)) return;
         if (!modelo.construirCasa()) {
             JOptionPane.showMessageDialog(parent,
-                    "Para construir é necessário estar em uma propriedade própria, ter saldo e respeitar o limite de casas/hotel.",
+                    "Para construir é necessário estar em uma propriedade própria, ter saldo, ter visitado a propriedade após a compra e respeitar o limite de casas/hotel.",
                     "Construção não realizada",
                     JOptionPane.INFORMATION_MESSAGE);
         }

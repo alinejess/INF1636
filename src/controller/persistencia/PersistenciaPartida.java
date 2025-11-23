@@ -18,7 +18,7 @@ import model.GameModelo;
 public final class PersistenciaPartida {
 
     private static final String CABECALHO = "INF1636-BANCO-IMOBILIARIO";
-    private static final int VERSAO_ATUAL = 1;
+    private static final int VERSAO_ATUAL = 3;
 
     private PersistenciaPartida() {}
 
@@ -47,6 +47,8 @@ public final class PersistenciaPartida {
             writer.write("saldoBanco=" + snapshot.saldoBanco);
             writer.newLine();
             writer.write("inicioDeTurno=" + snapshot.inicioDeTurno);
+            writer.newLine();
+            writer.write("podeLancarDados=" + snapshot.podeLancarDados);
             writer.newLine();
             writer.write("idUltimaCarta=" + encodeTexto(snapshot.idUltimaCartaSorte));
             writer.newLine();
@@ -117,6 +119,7 @@ public final class PersistenciaPartida {
         boolean inicioDeTurno = Boolean.parseBoolean(valores.getOrDefault("inicioDeTurno", "true"));
         boolean cartaSairDisponivel = Boolean.parseBoolean(valores.getOrDefault("cartaSairDisponivel", "true"));
         String ultimaCarta = decodeTexto(valores.getOrDefault("idUltimaCarta", ""));
+        boolean podeLancarDados = Boolean.parseBoolean(valores.getOrDefault("podeLancarDados", "true"));
 
         List<GameModelo.Snapshot.JogadorEstado> listaJogadores = new ArrayList<GameModelo.Snapshot.JogadorEstado>();
         int totalJogadores = parseInteiro(valores.getOrDefault("jogadores.total", Integer.toString(jogadores.size())), jogadores.size());
@@ -145,12 +148,17 @@ public final class PersistenciaPartida {
             if (partes.length < 5) throw new IOException("Entrada de propriedade inválida: " + dado);
             Integer proprietario = parseInteiro(partes[4], -1);
             if (proprietario != null && proprietario < 0) proprietario = null;
+            boolean construcaoLiberada = true;
+            if (partes.length >= 6) {
+                construcaoLiberada = Boolean.parseBoolean(partes[5]);
+            }
             listaPropriedades.add(new GameModelo.Snapshot.PropriedadeEstado(
                     parseInteiro(partes[0], 0),
                     decodeTexto(partes[1]),
                     parseInteiro(partes[2], 0),
                     Boolean.parseBoolean(partes[3]),
-                    proprietario
+                    proprietario,
+                    construcaoLiberada
             ));
         }
 
@@ -180,7 +188,8 @@ public final class PersistenciaPartida {
                 salario,
                 saldoBanco,
                 ultimaCarta,
-                inicioDeTurno
+                inicioDeTurno,
+                podeLancarDados
         );
     }
 
@@ -202,7 +211,8 @@ public final class PersistenciaPartida {
                 encodeTexto(prop.nome),
                 Integer.toString(prop.casas),
                 Boolean.toString(prop.hotel),
-                Integer.toString(proprietario));
+                Integer.toString(proprietario),
+                Boolean.toString(prop.construcaoLiberada));
     }
 
     private static String formatarCarta(GameModelo.Snapshot.CartaEstado carta) {

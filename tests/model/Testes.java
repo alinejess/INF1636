@@ -24,6 +24,7 @@ public class Testes {
         assertEquals(3, m.obterJogadorDaVez().posicao);
 
         m.depurarMoverPara(38);
+        m.depurarLiberarLancamento();
         m.deslocarPiao(1, 2);
         assertEquals(1, m.obterJogadorDaVez().posicao);
     }
@@ -40,11 +41,13 @@ public class Testes {
         assertTrue(m.obterJogadorDaVez().naPrisao);
 
         // Sem dupla: permanece preso e não move
+        m.depurarLiberarLancamento();
         boolean moveu = m.deslocarPiao(1, 2);
         assertFalse(moveu);
         assertTrue(m.obterJogadorDaVez().naPrisao);
 
         // Com dupla: sai e move
+        m.depurarLiberarLancamento();
         boolean moveu2 = m.deslocarPiao(1, 1);
         assertTrue(moveu2);
         assertFalse(m.obterJogadorDaVez().naPrisao);
@@ -53,10 +56,25 @@ public class Testes {
         m.concederCartaSaidaPrisao();
         // voltar a prender para testar carta
         m.depurarMoverPara(26);
+        m.depurarLiberarLancamento();
         m.deslocarPiao(3, 1);
         assertTrue(m.obterJogadorDaVez().naPrisao);
         assertTrue(m.usarCartaSaidaPrisao());
         assertFalse(m.obterJogadorDaVez().naPrisao);
+    }
+
+    @Test
+    public void apenasDuplasPermitemNovoLancamento() {
+        GameModelo m = new GameModelo();
+        m.adicionarJogador("A");
+
+        assertTrue(m.deslocarPiao(1, 2));
+        assertFalse("Sem dupla, não deve permitir novo lançamento no mesmo turno", m.deslocarPiao(1, 2));
+
+        m.depurarLiberarLancamento();
+        assertTrue(m.deslocarPiao(3, 3));
+        assertTrue("Dupla libera novo lançamento", m.deslocarPiao(1, 4));
+        assertFalse("Após resultado diferente, bloqueia novamente", m.deslocarPiao(2, 3));
     }
 
     // 3) Comprar propriedade sem dono
@@ -91,6 +109,10 @@ public class Testes {
         m.deslocarPiao(1, 2);
         assertTrue(m.comprarPropriedade());
 
+        assertFalse(m.construirCasa());
+        m.encerrarTurno();
+        moverAtualParaCasa(m, 3);
+
         int saldoAntes = m.obterJogadorDaVez().saldo;
         int bancoAntes = m.getSaldoBanco();
 
@@ -119,6 +141,10 @@ public class Testes {
         // A compra e constrói 1 casa na 3
         m.deslocarPiao(1, 2);
         assertTrue(m.comprarPropriedade());
+        assertFalse(m.construirCasa());
+        m.encerrarTurno(); // -> B
+        m.encerrarTurno(); // -> A novamente
+        moverAtualParaCasa(m, 3);
         assertTrue(m.construirCasa());
         int saldoA_antes = m.obterJogadorDaVez().saldo;
 
@@ -148,6 +174,10 @@ public class Testes {
         m.depurarMoverPara(6);
         assertTrue("A deve conseguir comprar a 6", m.comprarPropriedade());
         m.depurarDefinirSaldoJogadorDaVez(100_000);
+        assertFalse(m.construirCasa());
+        m.encerrarTurno(); // -> B
+        m.encerrarTurno(); // -> A
+        moverAtualParaCasa(m, 6);
         m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
         m.construirCasa(); // hotel
 
@@ -162,6 +192,10 @@ public class Testes {
         m.depurarMoverPara(3);
         assertTrue("B deve conseguir comprar a 3", m.comprarPropriedade());
         m.depurarDefinirSaldoJogadorDaVez(100_000);
+        assertFalse(m.construirCasa());
+        m.encerrarTurno(); // -> A
+        m.encerrarTurno(); // -> B
+        moverAtualParaCasa(m, 3);
         assertTrue("B deve conseguir construir 1 casa na 3", m.construirCasa());
 
         // --- B fica com pouco dinheiro e cai na 6 de A -> falência ---
@@ -260,6 +294,9 @@ public class Testes {
 	    m.adicionarJogador("A");
 	    m.deslocarPiao(1,2);
 	    org.junit.Assert.assertTrue(m.comprarPropriedade());
+	    org.junit.Assert.assertFalse(m.construirCasa());
+	    m.encerrarTurno();
+	    moverAtualParaCasa(m, 3);
 	    m.depurarDefinirSaldoJogadorDaVez(100000);
 	    m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
 	    org.junit.Assert.assertTrue(m.construirCasa());  // vira hotel
@@ -309,6 +346,11 @@ public class Testes {
 	    // A monta a armadilha na 7 (hotel)
 	    m.depurarMoverPara(6);
 	    m.comprarPropriedade();
+        org.junit.Assert.assertFalse(m.construirCasa());
+        m.encerrarTurno(); // -> B
+        m.encerrarTurno(); // -> C
+        m.encerrarTurno(); // -> A novamente
+        moverAtualParaCasa(m, 6);
 	    m.depurarDefinirSaldoJogadorDaVez(100000);
 	    m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
 	    m.construirCasa();
@@ -334,6 +376,10 @@ public class Testes {
 
 	    original.deslocarPiao(1, 2); // cai na 3 e pode comprar
 	    org.junit.Assert.assertTrue(original.comprarPropriedade());
+	    org.junit.Assert.assertFalse(original.construirCasa());
+	    original.encerrarTurno(); // -> jogador 2
+	    original.encerrarTurno(); // -> jogador inicial novamente
+	    moverAtualParaCasa(original, 3);
 	    org.junit.Assert.assertTrue(original.construirCasa());
 	    original.encerrarTurno(); // garante início de turno para salvar
 
@@ -397,5 +443,12 @@ public class Testes {
 	    m.deslocarPiao(1, 1); // cai na posição 5 (Companhia Ferroviária)
 	    int saldoDepois = m.obterJogadorDaVez().saldo;
 	    org.junit.Assert.assertTrue("Saldo deveria diminuir ao pagar aluguel da companhia", saldoDepois < saldoAntes);
+	}
+
+	private void moverAtualParaCasa(GameModelo jogo, int indiceCasa) {
+	    int destino = ((indiceCasa % 40) + 40) % 40;
+	    int origem = destino - 2;
+	    jogo.depurarMoverPara(origem);
+	    jogo.deslocarPiao(1, 1);
 	}
 }

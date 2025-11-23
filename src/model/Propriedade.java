@@ -11,6 +11,7 @@ class Propriedade extends Casa {
     Jogador proprietario;  // null = sem dono
     int casas;             // 0..4
     boolean hotel;         // true se houver hotel
+    boolean construcaoLiberada; // libera construção após nova visita
 
     private Propriedade(String nome, int preco) {
         super(Objects.requireNonNull(nome));
@@ -20,6 +21,7 @@ class Propriedade extends Casa {
         this.proprietario = null;
         this.casas = 0;
         this.hotel = false;
+        this.construcaoLiberada = true;
     }
 
     /** Fábrica moderna: calcula custos via fórmula. */

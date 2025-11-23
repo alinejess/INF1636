@@ -162,18 +162,23 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
     private void atualizarEstadoInterface() {
         GameModelo.VisaoCasa casa = null;
         GameModelo.VisaoJogador jogador = null;
+        boolean podeLancar = true;
         try {
             casa = modelo.obterCasaAtual();
             jogador = modelo.obterJogadorDaVez();
+            podeLancar = modelo.podeLancarDados();
         } catch (Throwable ignored) {}
 
         String nomeJogador = (jogador == null ? null : jogador.nome);
         boolean propriedadeDisponivel = casa != null && "PROPRIEDADE".equals(casa.tipo) && casa.proprietario == null;
         boolean propriedadeDoJogador = casa != null && "PROPRIEDADE".equals(casa.tipo) &&
-                casa.proprietario != null && casa.proprietario.equals(nomeJogador);
+                casa.proprietario != null && casa.proprietario.equals(nomeJogador) &&
+                Boolean.TRUE.equals(casa.construcaoLiberada);
         boolean companhiaDisponivel = casa != null && "COMPANHIA".equals(casa.tipo) && casa.proprietario == null;
 
         btnSalvar.setEnabled(modelo.estaNoInicioDoTurno());
+        btnForcar.setEnabled(podeLancar);
+        btnAleatorio.setEnabled(podeLancar);
         boolean possuiPropriedades = jogador != null && jogador.propriedades != null && !jogador.propriedades.isEmpty();
         btnComprarProp.setEnabled(propriedadeDisponivel);
         btnConstruir.setEnabled(propriedadeDoJogador);

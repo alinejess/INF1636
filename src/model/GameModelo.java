@@ -13,7 +13,7 @@ import model.Carta;
 /** API pública do Model (Iteração 1). */
 public class GameModelo {
 
-    private static final int SNAPSHOT_VERSAO = 1;
+    private static final int SNAPSHOT_VERSAO = 3;
 	
 	// --- Observer ---
 	private final List<OuvinteJogo> ouvintes = new ArrayList<OuvinteJogo>();
@@ -53,6 +53,7 @@ public class GameModelo {
     
     private  String idUltimaCartaSorteReves = null;
     private boolean inicioDeTurno = true;
+    private boolean podeLancarDados = true;
 
     public GameModelo() {
         this.tabuleiro = Tabuleiro.criarPadrao();
@@ -66,6 +67,7 @@ public class GameModelo {
         this.salarioPorRodada = 0; 
         this.baralho = BaralhoSorteReves.criarPadrao();
         this.inicioDeTurno = true;
+        this.podeLancarDados = true;
     }
 
     // =========================
@@ -96,20 +98,27 @@ public class GameModelo {
     // =========================
 
     public boolean deslocarPiao(int d1, int d2) {
+        if (!podeLancarDados) {
+            log("[DADOS] Lançamento ignorado: aguardando próximo turno.");
+            return false;
+        }
         Jogador j = jogadorAtual();
+        boolean dupla = (d1 == d2);
+        podeLancarDados = false;
         ultimaPropriedadeAlcancada = null;
         inicioDeTurno = false;
 
         // --- PRISÃO: só sai com dupla (ou carta em outro método) ---
         if (j.naPrisao) {
-            if (d1 == d2) {
+            if (dupla) {
                 // saiu com dupla
                 j.naPrisao = false;
                 j.turnosNaPrisao = 0;
                 mover(j, d1 + d2);
                 aplicarEfeitoDaCasa(j);
-                
+
                 notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                podeLancarDados = j.ativo; // continua jogando se ainda ativo
                 System.out.println("[Modelo] Saiu da prisão com dupla " + d1 + "+" + d2 + " e andou " + (d1 + d2));
                 return true;
             } else {
@@ -134,6 +143,7 @@ public class GameModelo {
         mover(j, d1 + d2);
         aplicarEfeitoDaCasa(j);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+        podeLancarDados = dupla && j.ativo;
         System.out.println("[Modelo] Moveu " + (d1 + d2) + " casas. Nova posição=" + j.posicao);
         return true;
     }
@@ -150,6 +160,7 @@ public class GameModelo {
         j.saldo -= p.preco;
         banco.receber(p.preco);
         p.proprietario = j;
+        p.construcaoLiberada = false;
         log("[COMPRA] %s adquiriu a propriedade %s por %d (saldo=%d)",
                 j.nome, p.nome, p.preco, j.saldo);
 
@@ -182,6 +193,7 @@ public class GameModelo {
 
         Propriedade p = (Propriedade) c;
         if (p.proprietario != j) return false;
+        if (!p.construcaoLiberada) return false;
 
         // Regra: 1 por vez, até 4 casas + 1 hotel
         if (p.hotel) return false;
@@ -215,6 +227,7 @@ public class GameModelo {
     public void encerrarTurno() {
         if (jogadores.isEmpty()) {
             inicioDeTurno = true;
+            podeLancarDados = true;
             imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
@@ -225,6 +238,7 @@ public class GameModelo {
         if (proximo < 0) { // ninguém ativo -> fim de jogo
             // opcional: jogoEncerrado = true;
             inicioDeTurno = true;
+            podeLancarDados = true;
             imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
@@ -235,6 +249,7 @@ public class GameModelo {
         indiceJogadorAtual = proximo;
         ultimaPropriedadeAlcancada = null;
         inicioDeTurno = true;
+        podeLancarDados = true;
 
         if (virouRodada) {
             numeroDaRodada++;
@@ -300,6 +315,10 @@ public class GameModelo {
 
     public boolean estaNoInicioDoTurno() {
         return inicioDeTurno;
+    }
+
+    public boolean podeLancarDados() {
+        return podeLancarDados;
     }
     
     // --- util interno ---
@@ -368,7 +387,8 @@ public class GameModelo {
             Propriedade pr = (Propriedade) c;
             String donoNome = (pr.proprietario == null ? null : pr.proprietario.nome);
             Integer donoIdx = (pr.proprietario == null ? null : Integer.valueOf(pr.proprietario.posicao));
-            return VisaoCasa.propriedade(pr.nome, pr.preco, pr.custoCasa, pr.casas, pr.hotel, donoNome, donoIdx);
+            return VisaoCasa.propriedade(pr.nome, pr.preco, pr.custoCasa, pr.casas,
+                    pr.hotel, donoNome, donoIdx, pr.construcaoLiberada);
         } else if (c instanceof Companhia) {
             Companhia comp = (Companhia) c;
             String donoNome = (comp.proprietario == null ? null : comp.proprietario.nome);
@@ -391,9 +411,11 @@ public class GameModelo {
         public final Boolean hotel;
         public final String proprietario;
         public final Integer indiceProprietario; // NOVO
+        public final Boolean construcaoLiberada;
 
         private VisaoCasa(String nome, String tipo, Integer preco, Integer custoCasa,
-                          Integer casas, Boolean hotel, String proprietario, Integer indiceProprietario) {
+                          Integer casas, Boolean hotel, String proprietario,
+                          Integer indiceProprietario, Boolean construcaoLiberada) {
             this.nome = nome;
             this.tipo = tipo;
             this.preco = preco;
@@ -402,19 +424,23 @@ public class GameModelo {
             this.hotel = hotel;
             this.proprietario = proprietario;
             this.indiceProprietario = indiceProprietario;
+            this.construcaoLiberada = construcaoLiberada;
         }
 
         static VisaoCasa propriedade(String nome, int preco, int custoCasa, int casas,
-                                     boolean hotel, String proprietario, Integer indiceProprietario) {
-            return new VisaoCasa(nome, "PROPRIEDADE", preco, custoCasa, casas, hotel, proprietario, indiceProprietario);
+                                     boolean hotel, String proprietario, Integer indiceProprietario,
+                                     boolean construcaoLiberada) {
+            return new VisaoCasa(nome, "PROPRIEDADE", preco, custoCasa, casas, hotel,
+                    proprietario, indiceProprietario, construcaoLiberada);
         }
 
         static VisaoCasa companhia(String nome, int preco, String proprietario, Integer indiceProprietario) {
-            return new VisaoCasa(nome, "COMPANHIA", preco, null, null, null, proprietario, indiceProprietario);
+            return new VisaoCasa(nome, "COMPANHIA", preco, null, null, null,
+                    proprietario, indiceProprietario, null);
         }
 
         static VisaoCasa especial(String nome, String tipoEspecial) {
-            return new VisaoCasa(nome, tipoEspecial, null, null, null, null, null, null);
+            return new VisaoCasa(nome, tipoEspecial, null, null, null, null, null, null, null);
         }
     }
 
@@ -471,6 +497,7 @@ public class GameModelo {
         indiceInicioDaRodada = 0;
         numeroDaRodada       = 1;
         inicioDeTurno        = true;
+        podeLancarDados      = true;
 
         // debug opcional:
         StringBuilder sb = new StringBuilder();
@@ -554,7 +581,10 @@ public class GameModelo {
             ultimaPropriedadeAlcancada = p;
 
             if (p.proprietario == null) return;
-            if (p.proprietario == j) return;
+            if (p.proprietario == j) {
+                p.construcaoLiberada = true;
+                return;
+            }
             if (p.casas == 0 && !p.hotel) return; // regra da iteração 1
 
             int aluguel = p.aluguel();
@@ -639,10 +669,11 @@ public class GameModelo {
 		        Casa casa = tabuleiro.obter(i);
 		        if (casa instanceof Propriedade) {
 		            Propriedade pr = (Propriedade) casa;
-		            if (pr.proprietario == j) {
-		                pr.proprietario = null;
-		                pr.casas = 0;
-		                pr.hotel = false;
+                    if (pr.proprietario == j) {
+                        pr.proprietario = null;
+                        pr.casas = 0;
+                        pr.hotel = false;
+                        pr.construcaoLiberada = true;
                     }
                 } else if (casa instanceof Companhia) {
                     Companhia cp = (Companhia) casa;
@@ -740,7 +771,8 @@ public class GameModelo {
                         prop.nome,
                         prop.casas,
                         prop.hotel,
-                        proprietario));
+                        proprietario,
+                        prop.construcaoLiberada));
             }
         }
 
@@ -763,7 +795,8 @@ public class GameModelo {
                 salarioPorRodada,
                 banco.getSaldo(),
                 idUltimaCartaSorteReves,
-                inicioDeTurno
+                inicioDeTurno,
+                podeLancarDados
         );
     }
 
@@ -795,6 +828,7 @@ public class GameModelo {
         this.salarioPorRodada = Math.max(0, snapshot.salarioPorRodada);
         this.idUltimaCartaSorteReves = snapshot.idUltimaCartaSorte;
         this.inicioDeTurno = snapshot.inicioDeTurno;
+        this.podeLancarDados = snapshot.podeLancarDados;
         this.ultimaPropriedadeAlcancada = null;
         this.carta = null;
 
@@ -811,6 +845,7 @@ public class GameModelo {
                 prop.proprietario = null;
                 prop.casas = 0;
                 prop.hotel = false;
+                prop.construcaoLiberada = true;
             }
         }
         if (estado == null) return;
@@ -822,6 +857,7 @@ public class GameModelo {
             Propriedade prop = (Propriedade) casa;
             prop.casas = Math.max(0, propEstado.casas);
             prop.hotel = propEstado.hotel;
+            prop.construcaoLiberada = propEstado.construcaoLiberada;
             if (propEstado.proprietario != null &&
                     propEstado.proprietario >= 0 &&
                     propEstado.proprietario < jogadoresDestino.size()) {
@@ -867,6 +903,7 @@ public class GameModelo {
         public final int saldoBanco;
         public final String idUltimaCartaSorte;
         public final boolean inicioDeTurno;
+        public final boolean podeLancarDados;
 
         public Snapshot(int versao,
                         List<JogadorEstado> jogadores,
@@ -879,7 +916,8 @@ public class GameModelo {
                         int salarioPorRodada,
                         int saldoBanco,
                         String idUltimaCartaSorte,
-                        boolean inicioDeTurno) {
+                        boolean inicioDeTurno,
+                        boolean podeLancarDados) {
             this.versao = versao;
             this.jogadores = copiaImutavel(jogadores);
             this.propriedades = copiaImutavel(propriedades);
@@ -892,6 +930,7 @@ public class GameModelo {
             this.saldoBanco = saldoBanco;
             this.idUltimaCartaSorte = idUltimaCartaSorte;
             this.inicioDeTurno = inicioDeTurno;
+            this.podeLancarDados = podeLancarDados;
         }
 
         private static <T> List<T> copiaImutavel(List<T> origem) {
@@ -931,17 +970,20 @@ public class GameModelo {
             public final int casas;
             public final boolean hotel;
             public final Integer proprietario;
+            public final boolean construcaoLiberada;
 
             public PropriedadeEstado(int indice,
                                      String nome,
                                      int casas,
                                      boolean hotel,
-                                     Integer proprietario) {
+                                     Integer proprietario,
+                                     boolean construcaoLiberada) {
                 this.indice = indice;
                 this.nome = nome;
                 this.casas = casas;
                 this.hotel = hotel;
                 this.proprietario = proprietario;
+                this.construcaoLiberada = construcaoLiberada;
             }
         }
 
@@ -1038,6 +1080,7 @@ public class GameModelo {
         prop.proprietario = null;
         prop.casas = 0;
         prop.hotel = false;
+        prop.construcaoLiberada = true;
         log("[VENDA] %s vendeu %s para o banco por %d", jogador.nome, prop.nome, valorVenda);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         return valorVenda;
@@ -1108,5 +1151,11 @@ public class GameModelo {
     /** Ajusta o saldo do jogador da vez (apenas para testes). */
     public void depurarDefinirSaldoJogadorDaVez(int novoSaldo) {
         jogadorAtual().saldo = novoSaldo;
+    }
+
+    /** Libera um novo lançamento (apoio a testes). */
+    public void depurarLiberarLancamento() {
+        this.podeLancarDados = true;
+        this.inicioDeTurno = true;
     }
 }
