@@ -126,6 +126,14 @@ public class GameModelo {
                 notificar(EventoJogo.ESTADO_ATUALIZADO, null);
                 System.out.println("[Modelo] Saiu da prisão com dupla " + d1 + "+" + d2 + " e andou " + (d1 + d2));
                 return true;
+            } else if (liberarJogadorDaPrisaoUsandoCarta(j)) {
+                mover(j, d1 + d2);
+                aplicarEfeitoDaCasa(j);
+                duplasConsecutivas = 0;
+                podeLancarDados = false;
+                notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                System.out.println("[Modelo] Saiu da prisão usando carta e andou " + (d1 + d2));
+                return true;
             } else {
                 // continua preso, NÃO MOVE
                 j.turnosNaPrisao++;
@@ -316,12 +324,19 @@ public class GameModelo {
     
     public boolean usarCartaSaidaPrisao() {
         Jogador j = jogadorAtual();
-        if (!j.naPrisao || j.cartasSaidaDaPrisao <= 0) return false;
+        boolean liberado = liberarJogadorDaPrisaoUsandoCarta(j);
+        if (liberado) {
+            notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+        }
+        return liberado;
+    }
+
+    private boolean liberarJogadorDaPrisaoUsandoCarta(Jogador j) {
+        if (j == null || !j.naPrisao || j.cartasSaidaDaPrisao <= 0) return false;
         j.cartasSaidaDaPrisao--;
         j.naPrisao = false;
         j.turnosNaPrisao = 0;
         baralho.devolverCartaSairDaPrisao(); // volta a “única” ao baralho
-        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         return true;
     }
 

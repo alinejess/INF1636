@@ -61,6 +61,22 @@ public class Testes {
         assertTrue(m.obterJogadorDaVez().naPrisao);
         assertTrue(m.usarCartaSaidaPrisao());
         assertFalse(m.obterJogadorDaVez().naPrisao);
+        assertEquals(0, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        assertNull(m.obterIdUltimaCartaSorteReves());
+
+        // Dar outra carta e garantir uso automático ao lançar dados
+        m.concederCartaSaidaPrisao();
+        m.depurarMoverPara(26);
+        m.depurarLiberarLancamento();
+        m.deslocarPiao(3, 1);
+        assertTrue(m.obterJogadorDaVez().naPrisao);
+        assertEquals(1, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        m.depurarLiberarLancamento();
+        boolean moveuComCarta = m.deslocarPiao(1, 2);
+        assertTrue(moveuComCarta);
+        assertFalse(m.obterJogadorDaVez().naPrisao);
+        assertEquals(0, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        assertEquals(13, m.obterJogadorDaVez().posicao);
     }
 
     @Test
