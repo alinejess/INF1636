@@ -606,7 +606,6 @@ public class GameModelo {
                 p.construcaoLiberada = true;
                 return;
             }
-            if (p.casas == 0 && !p.hotel) return; // regra da iteração 1
 
             int aluguel = p.aluguel();
             transferirJogadorParaJogador(j, p.proprietario, aluguel);
@@ -1072,6 +1071,20 @@ public class GameModelo {
         return lista;
     }
 
+    private java.util.List<String> nomesPropriedadesDoJogador(Jogador jogador) {
+        java.util.List<String> lista = new java.util.ArrayList<String>();
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                if (prop.proprietario == jogador) {
+                    lista.add(prop.nome);
+                }
+            }
+        }
+        return lista;
+    }
+
     private java.util.List<String> companhiasDoJogador(Jogador jogador) {
         java.util.List<String> lista = new java.util.ArrayList<String>();
         for (int i = 0; i < tabuleiro.tamanho(); i++) {
@@ -1092,7 +1105,7 @@ public class GameModelo {
     }
 
     public java.util.List<String> obterPropriedadesJogadorDaVez() {
-        return new java.util.ArrayList<String>(propriedadesDoJogador(jogadorAtual()));
+        return new java.util.ArrayList<String>(nomesPropriedadesDoJogador(jogadorAtual()));
     }
 
     public int venderPropriedadeDaVez(String nomePropriedade) {

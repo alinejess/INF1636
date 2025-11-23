@@ -317,25 +317,27 @@ public class Testes {
 	}
 	
 	@Test
-	public void naoCobraAluguelSeNaoHaCasas() {
+	public void cobraAluguelMesmoSemCasas() {
 		GameModelo m = new GameModelo();
-		m.configurarSalarioPorRodada(0); // evita que a virada de rodada altere o saldo de A
-		m.adicionarJogador("A");m.adicionarJogador("B");
+		m.configurarSalarioPorRodada(0); // evita que a virada altere saldos
+		m.adicionarJogador("A");
+		m.adicionarJogador("B");
 
 		// A compra sem construir
 		m.deslocarPiao(1,2);
 		assertTrue(m.comprarPropriedade());
-		int saldoA = m.obterJogadorDaVez().saldo;
+		int saldoA0 = m.obterJogadorDaVez().saldo;
 		
-		// B cai lá; não deve ter cobrança
+		// B cai lá e deve pagar aluguel mesmo sem casas
 		m.encerrarTurno();
 		int saldoB0 = m.obterJogadorDaVez().saldo;
 		m.deslocarPiao(1,2);
 		int saldoB1 = m.obterJogadorDaVez().saldo;
 		
-		assertEquals(saldoB0, saldoB1);
-		m.encerrarTurno(); // volta para A (salário desativado)
-        assertEquals(saldoA, m.obterJogadorDaVez().saldo);
+		assertTrue("Pagador deveria perder dinheiro", saldoB1 < saldoB0);
+		m.encerrarTurno(); // volta para A
+        int saldoA1 = m.obterJogadorDaVez().saldo;
+        assertTrue("Proprietário deveria receber dinheiro", saldoA1 > saldoA0);
 	}
 	
 	@Test
