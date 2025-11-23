@@ -13,7 +13,8 @@ import model.Carta;
 /** API pública do Model (Iteração 1). */
 public class GameModelo {
 
-    private static final int SNAPSHOT_VERSAO = 4;
+    private static final int SNAPSHOT_VERSAO = 5;
+    private static final int BONUS_PASSAR_INICIO = 200;
 	
 	// --- Observer ---
 	private final List<OuvinteJogo> ouvintes = new ArrayList<OuvinteJogo>();
@@ -178,6 +179,7 @@ public class GameModelo {
         banco.receber(p.preco);
         p.proprietario = j;
         p.construcaoLiberada = false;
+        p.vendaLiberada = false;
         log("[COMPRA] %s adquiriu a propriedade %s por %d (saldo=%d)",
                 j.nome, p.nome, p.preco, j.saldo);
 
@@ -251,6 +253,7 @@ public class GameModelo {
             return;
         }
 
+        Jogador finalizou = jogadorAtual();
         // Próximo jogador ativo a partir do atual
         int proximo = proximoJogadorAtivo(indiceJogadorAtual);
         if (proximo < 0) { // ninguém ativo -> fim de jogo
@@ -264,6 +267,8 @@ public class GameModelo {
         }
 
         boolean virouRodada = (proximo == indiceInicioDaRodada);
+
+        liberarVendaPropriedades(finalizou);
 
         indiceJogadorAtual = proximo;
         ultimaPropriedadeAlcancada = null;
@@ -496,7 +501,14 @@ public class GameModelo {
     }
     
     private void mover(Jogador j, int passos) {
-        int novo = (j.posicao + passos) % tabuleiro.tamanho();
+        int tam = tabuleiro.tamanho();
+        int origem = j.posicao;
+        int deslocamento = passos;
+        int bruto = origem + deslocamento;
+        int novo = Math.floorMod(bruto, tam);
+        if (deslocamento > 0 && bruto >= tam) {
+            transferirBancoParaJogador(j, BONUS_PASSAR_INICIO);
+        }
         j.posicao = novo;
     }
     
@@ -694,6 +706,7 @@ public class GameModelo {
                         pr.casas = 0;
                         pr.hotel = false;
                         pr.construcaoLiberada = true;
+                        pr.vendaLiberada = true;
                     }
                 } else if (casa instanceof Companhia) {
                     Companhia cp = (Companhia) casa;
@@ -793,7 +806,8 @@ public class GameModelo {
                         prop.casas,
                         prop.hotel,
                         proprietario,
-                        prop.construcaoLiberada));
+                        prop.construcaoLiberada,
+                        prop.vendaLiberada));
             }
         }
 
@@ -869,6 +883,7 @@ public class GameModelo {
                 prop.casas = 0;
                 prop.hotel = false;
                 prop.construcaoLiberada = true;
+                prop.vendaLiberada = true;
             }
         }
         if (estado == null) return;
@@ -881,6 +896,7 @@ public class GameModelo {
             prop.casas = Math.max(0, propEstado.casas);
             prop.hotel = propEstado.hotel;
             prop.construcaoLiberada = propEstado.construcaoLiberada;
+            prop.vendaLiberada = propEstado.vendaLiberada;
             if (propEstado.proprietario != null &&
                     propEstado.proprietario >= 0 &&
                     propEstado.proprietario < jogadoresDestino.size()) {
@@ -997,19 +1013,22 @@ public class GameModelo {
             public final boolean hotel;
             public final Integer proprietario;
             public final boolean construcaoLiberada;
+            public final boolean vendaLiberada;
 
             public PropriedadeEstado(int indice,
                                      String nome,
                                      int casas,
                                      boolean hotel,
                                      Integer proprietario,
-                                     boolean construcaoLiberada) {
+                                     boolean construcaoLiberada,
+                                     boolean vendaLiberada) {
                 this.indice = indice;
                 this.nome = nome;
                 this.casas = casas;
                 this.hotel = hotel;
                 this.proprietario = proprietario;
                 this.construcaoLiberada = construcaoLiberada;
+                this.vendaLiberada = vendaLiberada;
             }
         }
 
@@ -1085,6 +1104,33 @@ public class GameModelo {
         return lista;
     }
 
+    private void liberarVendaPropriedades(Jogador jogador) {
+        if (jogador == null) return;
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                if (prop.proprietario == jogador) {
+                    prop.vendaLiberada = true;
+                }
+            }
+        }
+    }
+
+    private java.util.List<String> nomesPropriedadesDoJogador(Jogador jogador) {
+        java.util.List<String> lista = new java.util.ArrayList<String>();
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                if (prop.proprietario == jogador) {
+                    lista.add(prop.nome);
+                }
+            }
+        }
+        return lista;
+    }
+
     private java.util.List<String> companhiasDoJogador(Jogador jogador) {
         java.util.List<String> lista = new java.util.ArrayList<String>();
         for (int i = 0; i < tabuleiro.tamanho(); i++) {
@@ -1112,6 +1158,7 @@ public class GameModelo {
         Jogador jogador = jogadorAtual();
         Propriedade prop = encontrarPropriedadePorNome(nomePropriedade);
         if (prop == null || prop.proprietario != jogador) return 0;
+        if (!prop.vendaLiberada) return 0;
 
         int valorBase = prop.preco + prop.casas * prop.custoCasa + (prop.hotel ? prop.custoHotel : 0);
         int valorVenda = (int) Math.round(valorBase * 0.9);
@@ -1121,6 +1168,7 @@ public class GameModelo {
         prop.casas = 0;
         prop.hotel = false;
         prop.construcaoLiberada = true;
+        prop.vendaLiberada = true;
         log("[VENDA] %s vendeu %s para o banco por %d", jogador.nome, prop.nome, valorVenda);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         return valorVenda;
@@ -1227,6 +1275,7 @@ public class GameModelo {
         prop.casas = 0;
         prop.hotel = false;
         prop.construcaoLiberada = true;
+        prop.vendaLiberada = true;
     }
 
     private void liquidarCompanhia(Companhia comp) {

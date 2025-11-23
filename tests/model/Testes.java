@@ -339,6 +339,35 @@ public class Testes {
         int saldoA1 = m.obterJogadorDaVez().saldo;
         assertTrue("Proprietário deveria receber dinheiro", saldoA1 > saldoA0);
 	}
+
+	@Test
+	public void naoPermiteVenderNoMesmoTurnoDaCompra() {
+	    GameModelo m = new GameModelo();
+	    m.adicionarJogador("A");
+	    m.adicionarJogador("B");
+
+	    m.deslocarPiao(1,2);
+	    assertTrue(m.comprarPropriedade());
+	    String nome = m.obterPropriedadesJogadorDaVez().get(0);
+	    assertEquals(0, m.venderPropriedadeDaVez(nome));
+
+	    m.encerrarTurno(); // -> B
+	    m.encerrarTurno(); // -> A novamente
+	    int valor = m.venderPropriedadeDaVez(m.obterPropriedadesJogadorDaVez().get(0));
+	    assertTrue(valor > 0);
+	}
+
+	@Test
+	public void ganhaBonusAoPassarInicio() {
+	    GameModelo m = new GameModelo();
+	    m.configurarSalarioPorRodada(0);
+	    m.adicionarJogador("A");
+	    int saldo0 = m.obterJogadorDaVez().saldo;
+	    m.depurarMoverPara(38);
+	    m.deslocarPiao(1, 2);
+	    int saldo1 = m.obterJogadorDaVez().saldo;
+	    assertEquals(saldo0 + 200, saldo1);
+	}
 	
 	@Test
 	public void vaParaPrisaoLevaAoIndiceDaPrisao() {

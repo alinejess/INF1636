@@ -18,7 +18,7 @@ import model.GameModelo;
 public final class PersistenciaPartida {
 
     private static final String CABECALHO = "INF1636-BANCO-IMOBILIARIO";
-    private static final int VERSAO_ATUAL = 4;
+    private static final int VERSAO_ATUAL = 5;
 
     private PersistenciaPartida() {}
 
@@ -155,13 +155,18 @@ public final class PersistenciaPartida {
             if (partes.length >= 6) {
                 construcaoLiberada = Boolean.parseBoolean(partes[5]);
             }
+            boolean vendaLiberada = true;
+            if (partes.length >= 7) {
+                vendaLiberada = Boolean.parseBoolean(partes[6]);
+            }
             listaPropriedades.add(new GameModelo.Snapshot.PropriedadeEstado(
                     parseInteiro(partes[0], 0),
                     decodeTexto(partes[1]),
                     parseInteiro(partes[2], 0),
                     Boolean.parseBoolean(partes[3]),
                     proprietario,
-                    construcaoLiberada
+                    construcaoLiberada,
+                    vendaLiberada
             ));
         }
 
@@ -216,7 +221,8 @@ public final class PersistenciaPartida {
                 Integer.toString(prop.casas),
                 Boolean.toString(prop.hotel),
                 Integer.toString(proprietario),
-                Boolean.toString(prop.construcaoLiberada));
+                Boolean.toString(prop.construcaoLiberada),
+                Boolean.toString(prop.vendaLiberada));
     }
 
     private static String formatarCarta(GameModelo.Snapshot.CartaEstado carta) {

@@ -113,7 +113,7 @@ public class ControladorJogo {
         int valor = modelo.venderPropriedadeDaVez((String) escolha);
         if (valor <= 0) {
             JOptionPane.showMessageDialog(parent,
-                    "Não foi possível vender a propriedade selecionada.",
+                    "Não foi possível vender a propriedade selecionada. Aguarde o início do seu próximo turno e confirme se ela pertence a você.",
                     "Venda não realizada",
                     JOptionPane.WARNING_MESSAGE);
         } else {
