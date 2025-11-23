@@ -11,6 +11,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 import controller.persistencia.PersistenciaPartida;
 import model.GameModelo;
+import view.JanelaInicial;
 import view.JanelaTabuleiro;
 import view.CoresJogador.CorPino;
 
@@ -156,6 +157,7 @@ public class ControladorJogo {
             JOptionPane.showMessageDialog(parent, "Não há partida em andamento.", "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        modelo.liquidarPatrimonio();
         registrarEstadoFinal();
         mostrarResultadoFinal(parent);
         if (janelaTabuleiro != null) {
@@ -170,6 +172,22 @@ public class ControladorJogo {
         if (modelo == null) return;
         java.util.List<GameModelo.RankingJogador> ranking = modelo.calcularRankingFinal();
         StringBuilder sb = new StringBuilder();
+        if (!ranking.isEmpty()) {
+            int topo = ranking.get(0).capital;
+            java.util.List<GameModelo.RankingJogador> lideres = new java.util.ArrayList<GameModelo.RankingJogador>();
+            for (GameModelo.RankingJogador r : ranking) {
+                if (r.capital == topo) lideres.add(r);
+            }
+            if (lideres.size() == 1) {
+                sb.append("Parabéns! O ").append(lideres.get(0).nome).append(" é o vencedor!\n\n");
+            } else {
+                sb.append("Empate! Os seguintes jogadores dividiram o primeiro lugar:\n");
+                for (GameModelo.RankingJogador r : lideres) {
+                    sb.append(" - ").append(r.nome).append("\n");
+                }
+                sb.append("\n");
+            }
+        }
         for (int i = 0; i < ranking.size(); i++) {
             GameModelo.RankingJogador r = ranking.get(i);
             sb.append(i + 1).append("º - ").append(r.nome)

@@ -55,7 +55,11 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
 
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent e) {
-                controlador.registrarEstadoFinal();
+                if (controlador.getModelo() != null) {
+                    controlador.encerrarJogo(JanelaTabuleiro.this);
+                } else {
+                    dispose();
+                }
             }
         });
 
@@ -132,6 +136,7 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
                 break;
         }
         if (e == EventoJogo.DADOS_LANCADOS && payload instanceof GameModelo.Lancamento) {
+            canvas.limparCarta();
             GameModelo.Lancamento l = (GameModelo.Lancamento) payload;
             canvas.definirDados(l.d1, l.d2);
         }
@@ -140,6 +145,10 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
     }
 
     private void atualizarCartaEmTela() {
+        if (modelo.estaNoInicioDoTurno()) {
+            canvas.limparCarta();
+            return;
+        }
         String idSorte = modelo.obterIdUltimaCartaSorteReves();
         if (idSorte != null) {
             canvas.registrarCartaSorte(idSorte);

@@ -77,6 +77,19 @@ public class Testes {
         assertFalse("Após resultado diferente, bloqueia novamente", m.deslocarPiao(2, 3));
     }
 
+    @Test
+    public void terceiraDuplaEnvioAutomatizadoParaPrisao() {
+        GameModelo m = new GameModelo();
+        m.adicionarJogador("A");
+
+        assertTrue(m.deslocarPiao(1, 1));
+        assertTrue("Primeira dupla deve liberar novo lançamento", m.podeLancarDados());
+        assertTrue(m.deslocarPiao(2, 2));
+        assertTrue(m.deslocarPiao(3, 3));
+        assertTrue("Jogador deve estar na prisão após três duplas seguidas", m.obterJogadorDaVez().naPrisao);
+        assertFalse("Após terceira dupla não deve ser permitido novo lançamento", m.podeLancarDados());
+    }
+
     // 3) Comprar propriedade sem dono
     @Test
     public void deveComprarPropriedadeSemDono() {
@@ -330,7 +343,7 @@ public class Testes {
 	    GameModelo m = new GameModelo();
 	    m.adicionarJogador("A");
 	    m.depurarMoverPara(27);
-	    m.deslocarPiao(1,2); // cai em "Vá para a Prisão" (15)
+	    m.deslocarPiao(1,2); // cai em "Vá para a Prisão" (30)
 	    org.junit.Assert.assertTrue(m.obterJogadorDaVez().naPrisao);
 	    // depois de aplicar, a posição precisa ser a da prisão (tabuleiro padrão: 11)
 	    org.junit.Assert.assertEquals(10, m.obterJogadorDaVez().posicao);

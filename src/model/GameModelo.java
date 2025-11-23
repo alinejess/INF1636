@@ -13,7 +13,7 @@ import model.Carta;
 /** API pública do Model (Iteração 1). */
 public class GameModelo {
 
-    private static final int SNAPSHOT_VERSAO = 3;
+    private static final int SNAPSHOT_VERSAO = 4;
 	
 	// --- Observer ---
 	private final List<OuvinteJogo> ouvintes = new ArrayList<OuvinteJogo>();
@@ -54,6 +54,7 @@ public class GameModelo {
     private  String idUltimaCartaSorteReves = null;
     private boolean inicioDeTurno = true;
     private boolean podeLancarDados = true;
+    private int duplasConsecutivas = 0;
 
     public GameModelo() {
         this.tabuleiro = Tabuleiro.criarPadrao();
@@ -68,6 +69,7 @@ public class GameModelo {
         this.baralho = BaralhoSorteReves.criarPadrao();
         this.inicioDeTurno = true;
         this.podeLancarDados = true;
+        this.duplasConsecutivas = 0;
     }
 
     // =========================
@@ -110,25 +112,40 @@ public class GameModelo {
 
         // --- PRISÃO: só sai com dupla (ou carta em outro método) ---
         if (j.naPrisao) {
+            duplasConsecutivas = 0;
             if (dupla) {
                 // saiu com dupla
                 j.naPrisao = false;
                 j.turnosNaPrisao = 0;
                 mover(j, d1 + d2);
                 aplicarEfeitoDaCasa(j);
-
-                notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+                
+                duplasConsecutivas = 1;
                 podeLancarDados = j.ativo; // continua jogando se ainda ativo
+                notificar(EventoJogo.ESTADO_ATUALIZADO, null);
                 System.out.println("[Modelo] Saiu da prisão com dupla " + d1 + "+" + d2 + " e andou " + (d1 + d2));
                 return true;
             } else {
                 // continua preso, NÃO MOVE
                 j.turnosNaPrisao++;
+                podeLancarDados = false;
                 notificar(EventoJogo.ESTADO_ATUALIZADO, null);
                 System.out.println("[Modelo] Continua preso. Dados: " + d1 + "+" + d2 + " (turnos na prisão=" + j.turnosNaPrisao + ")");
                 return false;
             }
            
+        }
+
+        if (dupla) {
+            duplasConsecutivas++;
+            if (duplasConsecutivas >= 3) {
+                duplasConsecutivas = 0;
+                enviarParaPrisao(j);
+                podeLancarDados = false;
+                return true;
+            }
+        } else {
+            duplasConsecutivas = 0;
         }
         
         Casa c = tabuleiro.obter(j.posicao);
@@ -142,8 +159,8 @@ public class GameModelo {
         // --- Jogo normal ---
         mover(j, d1 + d2);
         aplicarEfeitoDaCasa(j);
-        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         podeLancarDados = dupla && j.ativo;
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         System.out.println("[Modelo] Moveu " + (d1 + d2) + " casas. Nova posição=" + j.posicao);
         return true;
     }
@@ -228,6 +245,7 @@ public class GameModelo {
         if (jogadores.isEmpty()) {
             inicioDeTurno = true;
             podeLancarDados = true;
+            duplasConsecutivas = 0;
             imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
@@ -239,6 +257,7 @@ public class GameModelo {
             // opcional: jogoEncerrado = true;
             inicioDeTurno = true;
             podeLancarDados = true;
+            duplasConsecutivas = 0;
             imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
@@ -250,6 +269,7 @@ public class GameModelo {
         ultimaPropriedadeAlcancada = null;
         inicioDeTurno = true;
         podeLancarDados = true;
+        duplasConsecutivas = 0;
 
         if (virouRodada) {
             numeroDaRodada++;
@@ -498,6 +518,7 @@ public class GameModelo {
         numeroDaRodada       = 1;
         inicioDeTurno        = true;
         podeLancarDados      = true;
+        duplasConsecutivas   = 0;
 
         // debug opcional:
         StringBuilder sb = new StringBuilder();
@@ -533,7 +554,7 @@ public class GameModelo {
             switch (e.getTipo()) {
                 case VA_PARA_PRISAO:
                     enviarParaPrisao(j);
-                    idUltimaCartaSorteReves = carta.getIdImagem();
+                    idUltimaCartaSorteReves = (carta != null ? carta.getIdImagem() : null);
                     notificar(EventoJogo.ESTADO_ATUALIZADO, null);
                     return;
                 case SORTE_REVES:
@@ -725,6 +746,7 @@ public class GameModelo {
         j.naPrisao = true;
         j.turnosNaPrisao = 0;
         ultimaPropriedadeAlcancada = null;
+        duplasConsecutivas = 0;
         log("[PRISÃO] %s foi para a prisão (pos=%d)", j.nome, j.posicao);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
     }
@@ -796,7 +818,8 @@ public class GameModelo {
                 banco.getSaldo(),
                 idUltimaCartaSorteReves,
                 inicioDeTurno,
-                podeLancarDados
+                podeLancarDados,
+                duplasConsecutivas
         );
     }
 
@@ -829,6 +852,7 @@ public class GameModelo {
         this.idUltimaCartaSorteReves = snapshot.idUltimaCartaSorte;
         this.inicioDeTurno = snapshot.inicioDeTurno;
         this.podeLancarDados = snapshot.podeLancarDados;
+        this.duplasConsecutivas = Math.max(0, snapshot.duplasConsecutivas);
         this.ultimaPropriedadeAlcancada = null;
         this.carta = null;
 
@@ -904,6 +928,7 @@ public class GameModelo {
         public final String idUltimaCartaSorte;
         public final boolean inicioDeTurno;
         public final boolean podeLancarDados;
+        public final int duplasConsecutivas;
 
         public Snapshot(int versao,
                         List<JogadorEstado> jogadores,
@@ -917,7 +942,8 @@ public class GameModelo {
                         int saldoBanco,
                         String idUltimaCartaSorte,
                         boolean inicioDeTurno,
-                        boolean podeLancarDados) {
+                        boolean podeLancarDados,
+                        int duplasConsecutivas) {
             this.versao = versao;
             this.jogadores = copiaImutavel(jogadores);
             this.propriedades = copiaImutavel(propriedades);
@@ -931,6 +957,7 @@ public class GameModelo {
             this.idUltimaCartaSorte = idUltimaCartaSorte;
             this.inicioDeTurno = inicioDeTurno;
             this.podeLancarDados = podeLancarDados;
+            this.duplasConsecutivas = duplasConsecutivas;
         }
 
         private static <T> List<T> copiaImutavel(List<T> origem) {
@@ -1157,5 +1184,42 @@ public class GameModelo {
     public void depurarLiberarLancamento() {
         this.podeLancarDados = true;
         this.inicioDeTurno = true;
+        this.duplasConsecutivas = 0;
+    }
+
+    public void liquidarPatrimonio() {
+        for (int i = 0; i < tabuleiro.tamanho(); i++) {
+            Casa casa = tabuleiro.obter(i);
+            if (casa instanceof Propriedade) {
+                Propriedade prop = (Propriedade) casa;
+                if (prop.proprietario != null) {
+                    liquidarPropriedade(prop);
+                }
+            } else if (casa instanceof Companhia) {
+                Companhia comp = (Companhia) casa;
+                if (comp.proprietario != null) {
+                    liquidarCompanhia(comp);
+                }
+            }
+        }
+        notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+    }
+
+    private void liquidarPropriedade(Propriedade prop) {
+        int valorBase = prop.preco + prop.casas * prop.custoCasa + (prop.hotel ? prop.custoHotel : 0);
+        int valorVenda = (int) Math.round(valorBase * 0.9);
+        banco.pagar(valorVenda);
+        prop.proprietario.saldo += valorVenda;
+        prop.proprietario = null;
+        prop.casas = 0;
+        prop.hotel = false;
+        prop.construcaoLiberada = true;
+    }
+
+    private void liquidarCompanhia(Companhia comp) {
+        int valorVenda = (int) Math.round(comp.preco * 0.9);
+        banco.pagar(valorVenda);
+        comp.proprietario.saldo += valorVenda;
+        comp.proprietario = null;
     }
 }

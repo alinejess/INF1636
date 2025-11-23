@@ -18,7 +18,7 @@ import model.GameModelo;
 public final class PersistenciaPartida {
 
     private static final String CABECALHO = "INF1636-BANCO-IMOBILIARIO";
-    private static final int VERSAO_ATUAL = 3;
+    private static final int VERSAO_ATUAL = 4;
 
     private PersistenciaPartida() {}
 
@@ -49,6 +49,8 @@ public final class PersistenciaPartida {
             writer.write("inicioDeTurno=" + snapshot.inicioDeTurno);
             writer.newLine();
             writer.write("podeLancarDados=" + snapshot.podeLancarDados);
+            writer.newLine();
+            writer.write("duplasConsecutivas=" + snapshot.duplasConsecutivas);
             writer.newLine();
             writer.write("idUltimaCarta=" + encodeTexto(snapshot.idUltimaCartaSorte));
             writer.newLine();
@@ -120,6 +122,7 @@ public final class PersistenciaPartida {
         boolean cartaSairDisponivel = Boolean.parseBoolean(valores.getOrDefault("cartaSairDisponivel", "true"));
         String ultimaCarta = decodeTexto(valores.getOrDefault("idUltimaCarta", ""));
         boolean podeLancarDados = Boolean.parseBoolean(valores.getOrDefault("podeLancarDados", "true"));
+        int duplasConsecutivas = parseInteiro(valores.getOrDefault("duplasConsecutivas", "0"), 0);
 
         List<GameModelo.Snapshot.JogadorEstado> listaJogadores = new ArrayList<GameModelo.Snapshot.JogadorEstado>();
         int totalJogadores = parseInteiro(valores.getOrDefault("jogadores.total", Integer.toString(jogadores.size())), jogadores.size());
@@ -189,7 +192,8 @@ public final class PersistenciaPartida {
                 saldoBanco,
                 ultimaCarta,
                 inicioDeTurno,
-                podeLancarDados
+                podeLancarDados,
+                duplasConsecutivas
         );
     }
 
