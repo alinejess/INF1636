@@ -8,10 +8,11 @@ saldoBanco=200000
 inicioDeTurno=true
 idUltimaCarta=
 cartaSairDisponivel=true
-jogadores.total=3
+jogadores.total=4
 jogador.0=Sm9nYWRvciBBenVs|4000|18|false|0|0|true
 jogador.1=Sm9nYWRvciBMYXJhbmph|4000|0|false|0|0|true
-jogador.2=Sm9nYWRvciBWZXJtZWxobw==|4000|0|false|0|0|true
+jogador.2=Sm9nYWRvci BWZXJtZWxobw==|4000|0|false|0|0|true
+jogador.3=Sm9nYWRvci BBbWFyZWxv|4000|0|false|0|0|true
 propriedades.total=22
 propriedade.0=1|TGVibG9u|0|false|-1
 propriedade.1=3|QXYuIFByZXNpZGVudGUgVmFyZ2Fz|0|false|-1

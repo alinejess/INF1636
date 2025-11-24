@@ -132,6 +132,11 @@ public class JanelaTabuleiro extends JFrame implements OuvinteJogo {
             case ESTADO_ATUALIZADO:
                 atualizarCartaEmTela();
                 break;
+            case JOGO_ENCERRADO:
+                if (controlador.getModelo() != null) {
+                    controlador.encerrarJogo(this);
+                }
+                return;
             default:
                 break;
         }

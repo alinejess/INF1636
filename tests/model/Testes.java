@@ -61,7 +61,7 @@ public class Testes {
         assertTrue(m.obterJogadorDaVez().naPrisao);
         assertTrue(m.usarCartaSaidaPrisao());
         assertFalse(m.obterJogadorDaVez().naPrisao);
-        assertEquals(0, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        assertEquals(0, m.obterJogadorDaVez().temCartaSaidaDaPrisao);
         assertNull(m.obterIdUltimaCartaSorteReves());
 
         // Dar outra carta e garantir uso automático ao lançar dados
@@ -70,12 +70,12 @@ public class Testes {
         m.depurarLiberarLancamento();
         m.deslocarPiao(3, 1);
         assertTrue(m.obterJogadorDaVez().naPrisao);
-        assertEquals(1, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        assertEquals(1, m.obterJogadorDaVez().temCartaSaidaDaPrisao);
         m.depurarLiberarLancamento();
         boolean moveuComCarta = m.deslocarPiao(1, 2);
         assertTrue(moveuComCarta);
         assertFalse(m.obterJogadorDaVez().naPrisao);
-        assertEquals(0, m.obterJogadorDaVez().cartasSaidaDaPrisao);
+        assertEquals(0, m.obterJogadorDaVez().temCartaSaidaDaPrisao);
         assertEquals(13, m.obterJogadorDaVez().posicao);
     }
 
@@ -150,12 +150,17 @@ public class Testes {
         assertEquals(Integer.valueOf(1), m.obterCasaAtual().casas);
         assertTrue(m.obterJogadorDaVez().saldo < saldoAntes);
         assertTrue(m.getSaldoBanco() > bancoAntes);
+        assertFalse("Não deve construir novamente sem revisitar a propriedade", m.construirCasa());
 
-        // Constrói até 4 casas
-        m.construirCasa(); m.construirCasa(); m.construirCasa();
+        // Constrói até 4 casas (revisitando entre cada construção)
+        for (int i = 0; i < 3; i++) {
+            revisitarPropriedadeDoJogador(m, 3);
+            assertTrue(m.construirCasa());
+        }
         assertEquals(Integer.valueOf(4), m.obterCasaAtual().casas);
 
         // 5ª construção vira hotel
+        revisitarPropriedadeDoJogador(m, 3);
         assertTrue(m.construirCasa());
         assertTrue(m.obterCasaAtual().hotel.booleanValue());
     }
@@ -207,8 +212,7 @@ public class Testes {
         m.encerrarTurno(); // -> B
         m.encerrarTurno(); // -> A
         moverAtualParaCasa(m, 6);
-        m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
-        m.construirCasa(); // hotel
+        construirComRevisitas(m, 6, 5);
 
         // Confere que a 6 é PROPRIEDADE de A e tem hotel
         GameModelo.VisaoCasa v6 = m.obterCasaAtual();
@@ -241,6 +245,33 @@ public class Testes {
         assertNull("Propriedade do falido deveria voltar ao banco", v.proprietario);
         assertEquals("Número de casas deveria ser 0 após falência", Integer.valueOf(0), v.casas);
         assertFalse("Hotel não deve existir após falência", v.hotel.booleanValue());
+    }
+
+    @Test
+    public void encerraAutomaticamenteQuandoRestaUmJogador() {
+        GameModelo m = new GameModelo();
+        m.adicionarJogador("A");
+        m.adicionarJogador("B");
+
+        // A monta hotel na 3
+        m.deslocarPiao(1, 2);
+        assertTrue(m.comprarPropriedade());
+        m.depurarDefinirSaldoJogadorDaVez(100_000);
+        assertFalse(m.construirCasa());
+        m.encerrarTurno();
+        m.encerrarTurno();
+        moverAtualParaCasa(m, 3);
+        construirComRevisitas(m, 3, 5);
+
+        // B cai na 3 sem dinheiro suficiente -> falência
+        m.encerrarTurno(); // -> B
+        m.depurarDefinirSaldoJogadorDaVez(50);
+        m.depurarMoverPara(0);
+        m.deslocarPiao(1, 2);
+
+        assertTrue("Jogo deveria encerrar automaticamente com apenas um jogador ativo",
+                m.isJogoEncerradoAutomaticamente());
+        assertEquals(1, m.getQuantidadeDeJogadoresAtivos());
     }
 
 
@@ -327,13 +358,12 @@ public class Testes {
 	    m.encerrarTurno();
 	    moverAtualParaCasa(m, 3);
 	    m.depurarDefinirSaldoJogadorDaVez(100000);
-	    m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
-	    org.junit.Assert.assertTrue(m.construirCasa());  // vira hotel
+	    construirComRevisitas(m, 3, 5);  // 4 casas + hotel
 	    org.junit.Assert.assertFalse(m.construirCasa()); // não passa de hotel
 	}
 	
 	@Test
-	public void cobraAluguelMesmoSemCasas() {
+    public void naoCobraAluguelSemCasas() {
 		GameModelo m = new GameModelo();
 		m.configurarSalarioPorRodada(0); // evita que a virada altere saldos
 		m.adicionarJogador("A");
@@ -350,10 +380,10 @@ public class Testes {
 		m.deslocarPiao(1,2);
 		int saldoB1 = m.obterJogadorDaVez().saldo;
 		
-		assertTrue("Pagador deveria perder dinheiro", saldoB1 < saldoB0);
+		assertEquals("Não deve cobrar aluguel sem construções", saldoB0, saldoB1);
 		m.encerrarTurno(); // volta para A
         int saldoA1 = m.obterJogadorDaVez().saldo;
-        assertTrue("Proprietário deveria receber dinheiro", saldoA1 > saldoA0);
+        assertEquals("Proprietário não recebe sem construções", saldoA0, saldoA1);
 	}
 
 	@Test
@@ -412,8 +442,7 @@ public class Testes {
         m.encerrarTurno(); // -> A novamente
         moverAtualParaCasa(m, 6);
 	    m.depurarDefinirSaldoJogadorDaVez(100000);
-	    m.construirCasa(); m.construirCasa(); m.construirCasa(); m.construirCasa();
-	    m.construirCasa();
+	    construirComRevisitas(m, 6, 5);
 	
 	    // B vai falir
 	    m.encerrarTurno();              // B
@@ -484,31 +513,52 @@ public class Testes {
 	}
 
 	@Test
-	public void aluguelDeCompanhiaEscalaComQuantidade() {
-	    GameModelo m = new GameModelo();
-	    m.adicionarJogador("A");
-	    m.adicionarJogador("B");
-	    // Jogador A compra duas companhias
-	    m.depurarMoverPara(5);
-	    org.junit.Assert.assertTrue(m.comprarCompanhia());
-	    m.encerrarTurno();
-	    m.encerrarTurno(); // volta para A
-	    m.depurarMoverPara(7);
-	    org.junit.Assert.assertTrue(m.comprarCompanhia());
+    public void aluguelDeCompanhiaDependeDosDados() {
+        GameModelo m = new GameModelo();
+        m.adicionarJogador("A");
+        m.adicionarJogador("B");
+        // Jogador A compra duas companhias
+        m.depurarMoverPara(5);
+        org.junit.Assert.assertTrue(m.comprarCompanhia());
+        m.encerrarTurno();
+        m.encerrarTurno(); // volta para A
+        m.depurarMoverPara(7);
+        org.junit.Assert.assertTrue(m.comprarCompanhia());
 
-	    // Jogador B cai em uma das companhias e paga aluguel proporcional
-	    m.encerrarTurno(); // -> B
-	    int saldoAntes = m.obterJogadorDaVez().saldo;
-	    m.depurarMoverPara(3);
-	    m.deslocarPiao(1, 1); // cai na posição 5 (Companhia Ferroviária)
-	    int saldoDepois = m.obterJogadorDaVez().saldo;
-	    org.junit.Assert.assertTrue("Saldo deveria diminuir ao pagar aluguel da companhia", saldoDepois < saldoAntes);
-	}
+        // Jogador B cai em uma das companhias e paga aluguel proporcional aos dados
+        m.encerrarTurno(); // -> B
+        int saldoAntes = m.obterJogadorDaVez().saldo;
+        int saldoDonoAntes = m.obterJogadores().get(0).saldo;
+        m.depurarMoverPara(3);
+        m.deslocarPiao(1, 1); // cai na posição 5 (Companhia Ferroviária)
+        int saldoDepois = m.obterJogadorDaVez().saldo;
+        assertEquals("Aluguel deve ser soma dos dados (2) * 50", saldoAntes - 100, saldoDepois);
+        int saldoDonoDepois = m.obterJogadores().get(0).saldo;
+        assertEquals("Proprietário deve receber o valor do aluguel", saldoDonoAntes + 100, saldoDonoDepois);
+    }
 
-	private void moverAtualParaCasa(GameModelo jogo, int indiceCasa) {
-	    int destino = ((indiceCasa % 40) + 40) % 40;
-	    int origem = destino - 2;
-	    jogo.depurarMoverPara(origem);
-	    jogo.deslocarPiao(1, 1);
-	}
+    private void moverAtualParaCasa(GameModelo jogo, int indiceCasa) {
+        int destino = ((indiceCasa % 40) + 40) % 40;
+        int origem = destino - 2;
+        jogo.depurarMoverPara(origem);
+        jogo.deslocarPiao(1, 1);
+    }
+
+    private void revisitarPropriedadeDoJogador(GameModelo jogo, int indiceCasa) {
+        int indiceJogador = jogo.obterIndiceJogadorDaVez();
+        jogo.encerrarTurno();
+        while (jogo.obterIndiceJogadorDaVez() != indiceJogador) {
+            jogo.encerrarTurno();
+        }
+        moverAtualParaCasa(jogo, indiceCasa);
+    }
+
+    private void construirComRevisitas(GameModelo jogo, int indiceCasa, int quantidadeConstrucoes) {
+        for (int i = 0; i < quantidadeConstrucoes; i++) {
+            org.junit.Assert.assertTrue(jogo.construirCasa());
+            if (i < quantidadeConstrucoes - 1) {
+                revisitarPropriedadeDoJogador(jogo, indiceCasa);
+            }
+        }
+    }
 }

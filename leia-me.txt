@@ -1,0 +1,91 @@
+INF1636 — LEIA-ME (Iteração 4)
+================================
+
+1. Integrantes e informações do grupo
+-------------------------------------
+- Arthur Poggy — Matrícula: **informar** (autor dos commits recentes no repositório).
+- Aline Jessica David Gonçalves — Matrícula: **informar** (autora do repositório original).
+
+> Observação: substitua os marcadores “informar” pelas matrículas oficiais de cada membro assim que possível. Caso haja outros participantes, acrescente-os nesta lista seguindo o mesmo formato.
+
+2. Classe que contém o método `main`
+------------------------------------
+O ponto de entrada da aplicação está em `controller.App`. Essa classe instancia o `ControladorJogo`, abre a `JanelaInicial` e delega ao Swing (`EventQueue.invokeLater`) a criação da interface gráfica do Banco Imobiliário.
+
+3. Link para o vídeo de apresentação
+------------------------------------
+Insira aqui o URL compartilhado (Google Drive, Dropbox etc.) do vídeo que demonstra o projeto seguindo o roteiro solicitado (partida com 4 jogadores, eventos obrigatórios, demonstração das regras de prisão, salvamento/carregamento, padrões arquiteturais, participação de todos os integrantes, duração máxima de 30 minutos).
+
+Exemplo: `https://drive.google.com/XXXXXXXX` (substituir pelo link real).
+
+4. Formato do arquivo de salvamento (`*.txt`)
+---------------------------------------------
+Todo arquivo salvo via menu do jogo segue o layout textual produzido por `controller.persistencia.PersistenciaPartida`. Cada linha é `chave=valor` (UTF-8) e o arquivo sempre começa com:
+
+- `# INF1636-BANCO-IMOBILIARIO` — cabeçalho fixo.
+- `versao=` — inteiro que identifica a versão do snapshot (atualmente 5).
+- `indiceAtual=` — índice do jogador cuja vez está em andamento.
+- `indiceInicio=` — índice que inaugura a rodada atual.
+- `numeroRodada=` — rodadas completadas.
+- `salarioPorRodada=` — valor do “salário” distribuído quando a rodada vira.
+- `saldoBanco=` — saldo atual do banco.
+- `inicioDeTurno=` — `true` quando o jogador ainda não lançou os dados.
+- `podeLancarDados=` — `true` se o jogo permite novo lançamento.
+- `duplasConsecutivas=` — contador interno usado para envio automático à prisão.
+- `idUltimaCarta=` — ID (Base64) da carta Sorte/Revés aplicada no último lance ou vazio.
+- `cartaSairDisponivel=` — `true` se a carta “Sair da Prisão” está no baralho.
+
+Em seguida vêm os blocos com quantidades e itens numerados:
+
+### Jogadores
+
+```
+jogadores.total=N
+jogador.i=<nome>|<saldo>|<posicao>|<naPrisao>|<turnosNaPrisao>|<cartasSaida>|<ativo>
+```
+
+- Os nomes são codificados em Base64 (mesma função `encodeTexto` usada para propriedades e IDs de carta), portanto é necessário decodificar antes de exibir.
+- `posicao` é o índice da casa no tabuleiro.
+- `naPrisao` / `turnosNaPrisao` controlam o estado da prisão.
+- `cartasSaida` é a quantidade de cartas “Sair da Prisão” em posse do jogador.
+- `ativo` indica se o jogador faliu ou continua na partida.
+
+### Propriedades
+
+```
+propriedades.total=M
+propriedade.i=<indiceCasa>|<nome>|<casas>|<hotel>|<indiceProprietario>|<construcaoLiberada>|<vendaLiberada>
+```
+
+- `indiceCasa` refere-se ao índice da casa no tabuleiro padrão.
+- `nome` também está em Base64.
+- `casas` varia de 0 a 4; `hotel` é `true` para hotel construído.
+- `indiceProprietario` usa `-1` para indicar que o banco ainda é dono.
+- As flags `construcaoLiberada` e `vendaLiberada` são controles internos usados pelo modelo.
+
+### Cartas Sorte/Revés
+
+```
+cartas.total=K
+carta.i=<idImagem>|<tipo>|<valor>
+```
+
+- `idImagem` é codificado em Base64 (por exemplo, `Y2hhbmNlMTcucG5n` corresponde a `chance17.png`).
+- `tipo` é um dos valores enumerados (`BANCO_PAGA_JOGADOR`, `JOGADOR_PAGA_BANCO`, `RECEBE_DE_CADA_JOGADOR`, `SAIR_DA_PRISAO`, `VA_PARA_PRISAO`).
+- `valor` representa o montante (positivo) usado pelas regras específicas de cada tipo.
+
+Outras informações armazenadas:
+
+- `salarioPorRodada`, `saldoBanco` e `numeroRodada` refletem o estado econômico.
+- `idUltimaCarta` e `cartaSairDisponivel` permitem restaurar corretamente o baralho.
+- Todos os blocos são obrigatórios e respeitam a ordem mostrada.
+
+Quando for necessário editar manualmente um save:
+
+1. Mantenha o cabeçalho e não remova campos obrigatórios.
+2. Preserve a codificação Base64 dos textos (`encodeTexto`/`decodeTexto`).
+3. As quantidades (`*.total`) precisam bater com o número de entradas subsequentes.
+
+5. Como executar / requisitos
+-----------------------------
+1. Compile/executa o projeto apontando para a classe `controller.App`. No Eclipse: `Run As > Java Application`, escolhendo `controller.App`.

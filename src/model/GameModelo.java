@@ -45,6 +45,8 @@ public class GameModelo {
     private Carta carta;
     
     final BaralhoSorteReves baralho;
+    private int ultimaSomaDados = 0;
+    private boolean jogoEncerradoAutomaticamente = false;
 
     // ---- Regras de rodada/salário ----
     private int salarioPorRodada = 200;
@@ -71,6 +73,8 @@ public class GameModelo {
         this.inicioDeTurno = true;
         this.podeLancarDados = true;
         this.duplasConsecutivas = 0;
+        this.ultimaSomaDados = 0;
+        this.jogoEncerradoAutomaticamente = false;
     }
 
     // =========================
@@ -107,6 +111,7 @@ public class GameModelo {
         }
         Jogador j = jogadorAtual();
         boolean dupla = (d1 == d2);
+        ultimaSomaDados = d1 + d2;
         podeLancarDados = false;
         ultimaPropriedadeAlcancada = null;
         inicioDeTurno = false;
@@ -244,6 +249,7 @@ public class GameModelo {
                     j.nome, p.nome, j.saldo);
             // Mantemos p.casas = 4, pois a regra/planilha considera "4 casas e um hotel"
         }
+        p.construcaoLiberada = false; // precisa visitar novamente para construir mais
 
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
         return true;
@@ -252,6 +258,10 @@ public class GameModelo {
 
     /** Encerra o turno e seleciona o próximo jogador ativo. Se “virou a rodada”, paga salário. */
     public void encerrarTurno() {
+        if (getQuantidadeDeJogadoresAtivos() <= 1) {
+            verificarEncerramentoAutomatico();
+            if (jogoEncerradoAutomaticamente) return;
+        }
         if (jogadores.isEmpty()) {
             inicioDeTurno = true;
             podeLancarDados = true;
@@ -265,12 +275,12 @@ public class GameModelo {
         // Próximo jogador ativo a partir do atual
         int proximo = proximoJogadorAtivo(indiceJogadorAtual);
         if (proximo < 0) { // ninguém ativo -> fim de jogo
-            // opcional: jogoEncerrado = true;
             inicioDeTurno = true;
             podeLancarDados = true;
             duplasConsecutivas = 0;
             imprimirEstadoCompleto();
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+            verificarEncerramentoAutomatico();
             return;
         }
 
@@ -359,6 +369,10 @@ public class GameModelo {
 
     public boolean podeLancarDados() {
         return podeLancarDados;
+    }
+
+    public boolean isJogoEncerradoAutomaticamente() {
+        return jogoEncerradoAutomaticamente;
     }
     
     // --- util interno ---
@@ -490,19 +504,6 @@ public class GameModelo {
 
     private Jogador jogadorAtual() { return jogadores.get(indiceJogadorAtual); }
 
-    private int contarCompanhiasDoJogador(Jogador proprietario) {
-        if (proprietario == null) return 0;
-        int total = 0;
-        for (int i = 0; i < tabuleiro.tamanho(); i++) {
-            Casa casa = tabuleiro.obter(i);
-            if (casa instanceof Companhia) {
-                Companhia comp = (Companhia) casa;
-                if (comp.proprietario == proprietario) total++;
-            }
-        }
-        return total;
-    }
-
     /** Próximo índice de jogador ativo em sentido horário. */
     private int proximoJogadorAtivo(int aPartirDe) {
         int n = jogadores.size();
@@ -614,8 +615,7 @@ public class GameModelo {
             if (comp.proprietario == null) return;
             if (comp.proprietario == j) return;
 
-            int quantidade = contarCompanhiasDoJogador(comp.proprietario);
-            int aluguel = comp.aluguel(quantidade);
+            int aluguel = comp.aluguelPorDados(ultimaSomaDados);
             transferirJogadorParaJogador(j, comp.proprietario, aluguel);
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
             return;
@@ -634,6 +634,9 @@ public class GameModelo {
                 return;
             }
 
+            if (p.casas <= 0 && !p.hotel) {
+                return; // sem construções, sem aluguel
+            }
             int aluguel = p.aluguel();
             transferirJogadorParaJogador(j, p.proprietario, aluguel);
             
@@ -732,6 +735,7 @@ public class GameModelo {
             }
             j.ativo = false;
             notificar(EventoJogo.ESTADO_ATUALIZADO, null);
+            verificarEncerramentoAutomatico();
         }
     
  // --- API para Cartas (usada por Carta.java) ---
@@ -774,6 +778,7 @@ public class GameModelo {
         j.turnosNaPrisao = 0;
         ultimaPropriedadeAlcancada = null;
         duplasConsecutivas = 0;
+        ultimaSomaDados = 0;
         log("[PRISÃO] %s foi para a prisão (pos=%d)", j.nome, j.posicao);
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
     }
@@ -784,6 +789,7 @@ public class GameModelo {
         j.turnosNaPrisao = 0;
         ultimaPropriedadeAlcancada = null;
         idUltimaCartaSorteReves = null;
+        ultimaSomaDados = 0;
         log("[SORTE/REVES] %s foi enviado ao ponto de partida", j.nome);
         if (bonus > 0) {
             banco.pagar(bonus);
@@ -883,9 +889,13 @@ public class GameModelo {
         this.duplasConsecutivas = Math.max(0, snapshot.duplasConsecutivas);
         this.ultimaPropriedadeAlcancada = null;
         this.carta = null;
+        this.ultimaSomaDados = 0;
+        this.jogoEncerradoAutomaticamente = false;
 
         restaurarPropriedades(snapshot.propriedades, this.jogadores);
         restaurarBaralho(snapshot.baralhoCartas, snapshot.cartaSairDisponivel);
+        verificarEncerramentoAutomatico();
+        if (jogoEncerradoAutomaticamente) return;
         notificar(EventoJogo.ESTADO_ATUALIZADO, null);
     }
 
@@ -1105,20 +1115,6 @@ public class GameModelo {
         return lista;
     }
 
-    private java.util.List<String> nomesPropriedadesDoJogador(Jogador jogador) {
-        java.util.List<String> lista = new java.util.ArrayList<String>();
-        for (int i = 0; i < tabuleiro.tamanho(); i++) {
-            Casa casa = tabuleiro.obter(i);
-            if (casa instanceof Propriedade) {
-                Propriedade prop = (Propriedade) casa;
-                if (prop.proprietario == jogador) {
-                    lista.add(prop.nome);
-                }
-            }
-        }
-        return lista;
-    }
-
     private void liberarVendaPropriedades(Jogador jogador) {
         if (jogador == null) return;
         for (int i = 0; i < tabuleiro.tamanho(); i++) {
@@ -1228,6 +1224,18 @@ public class GameModelo {
             }
         }
         return capital;
+    }
+
+    private void verificarEncerramentoAutomatico() {
+        if (jogoEncerradoAutomaticamente) return;
+        if (getQuantidadeDeJogadoresAtivos() <= 1) {
+            jogoEncerradoAutomaticamente = true;
+            inicioDeTurno = true;
+            podeLancarDados = false;
+            duplasConsecutivas = 0;
+            ultimaSomaDados = 0;
+            notificar(EventoJogo.JOGO_ENCERRADO, null);
+        }
     }
 
     public static final class RankingJogador {
